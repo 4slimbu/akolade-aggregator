@@ -1,0 +1,11 @@
+cache
+error_log
+*.md
+*.swp
+*.log
+*.cache
+*~
+.idea
+.htaccess
+.DS_Store
+.ftpquota
