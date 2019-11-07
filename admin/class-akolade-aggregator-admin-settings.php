@@ -73,11 +73,12 @@ class Akolade_Aggregator_Admin_Settings
     public function sanitize( $input )
     {
         $new_input = array();
+
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
 
         if( isset( $input['network_sites'] ) )
-            $new_input['network_sites'] = sanitize_text_field( $input['network_sites'] );
+            $new_input['network_sites'] = $input['network_sites'];
 
         if( isset( $input['auto_publish'] ) )
             $new_input['auto_publish'] = sanitize_text_field( $input['auto_publish'] );
@@ -91,7 +92,7 @@ class Akolade_Aggregator_Admin_Settings
     public function access_token_callback()
     {
         printf(
-            '<input type="text" id="access_token" name="akolade-aggregator[access_token]" value="%s"  /><br /><small>Leave blank if you want it to be valid for all date and time.</small>',
+            '<input type="text" id="access_token" class="form-input" name="akolade-aggregator[access_token]" value="%s"  /><button class="ak-generate-token" type="button">Generate New</button><br /><small>Use this access token on other site to post data on this site. If new access token is generated, sites using previous access token won\'t be able to post on this site.</small>',
             $this->getOption('access_token') ? esc_attr( $this->getOption('access_token')) : ''
         );
     }
@@ -102,26 +103,36 @@ class Akolade_Aggregator_Admin_Settings
     public function network_sites_callback()
     {
         ob_start();
+        $current_index = 0;
         ?>
-        <table style="width:100%">
+        <table style="width:100%" class="ak-network-sites">
             <tr>
+                <th>Site Title</th>
                 <th>Site Url</th>
                 <th>Access Token</th>
             </tr>
-            <?php if ($this->getOption('network_sites')): ?>
-                <?php foreach($this->getOption('network_sites') as $network_site): ?>
+                <?php if($this->getOption('network_sites')): ?>
+                <?php foreach($this->getOption('network_sites') as $key => $network_site): ?>
                 <tr>
-                    <td><?php echo $network_site->url; ?></td>
-                    <td><?php echo $network_site->access_token; ?></td>
+                    <td>
+                        <input type="text"  class="form-input" name="akolade-aggregator[network_sites][<?php echo $key; ?>][title]"
+                               placeholder="Remote site title" value="<?php echo $network_site['title']; ?>"/>
+                    </td>
+                    <td>
+                        <input type="text"  class="form-input" name="akolade-aggregator[network_sites][<?php echo $key; ?>][url]"
+                               placeholder="Remote site url" value="<?php echo $network_site['url']; ?>"/>
+                    </td>
+                    <td>
+                        <input type="text" class="form-input" name="akolade-aggregator[network_sites][<?php echo $key; ?>][access_token]"
+                               placeholder="Access token" value="<?php echo $network_site['access_token']; ?>"/>
+                    </td>
                 </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-
+                <?php $current_index++; endforeach; ?>
+                <?php endif; ?>
         </table>
 
-        <input type="text" id="network_sites" name="akolade-aggregator[network_sites]"
-               value="<?php echo $this->getOption('network_sites') ? esc_attr( $this->getOption('network_sites')) : ''; ?>"  />
-
+        <button class="ak-add-new-element" type="button" data-current-index="<?php echo $current_index; ?>">Add New +</button>
+        <br><small>Add sites to post data from this site.</small>
         <?php
         $content = ob_get_clean();
         echo $content;
@@ -133,7 +144,7 @@ class Akolade_Aggregator_Admin_Settings
     public function auto_publish_callback()
     {
         printf(
-            '<input type="checkbox" id="auto_publish" name="akolade-aggregator[auto_publish]" value="1"  %s/><br><small>If checked, the popup will be shown on front page only</small>',
+            '<input type="checkbox" id="auto_publish" name="akolade-aggregator[auto_publish]" value="1"  %s/><br><small>If checked, the aggregated posts will be published automatically</small>',
             ($this->getOption('auto_publish')) ? 'checked' : ''
         );
     }

@@ -2,3 +2,26 @@
  * All of the CSS for your admin-specific functionality should be
  * included in this file.
  */
+
+.ak-network-sites {
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+
+.ak-network-sites th, .ak-network-sites tr, .ak-network-sites td {
+    border: 1px solid #e0e0e0;
+}
+
+.ak-network-sites th, .ak-network-sites td {
+    padding: 10px;
+}
+
+.form-input {
+    width: 50%;
+    height: 32px;
+}
+
+.ak-network-sites .form-input {
+    width: 100%;
+    height: 32px;
+}
