@@ -40,6 +40,24 @@ class Akolade_Aggregator_Admin {
 	 */
 	private $version;
 
+    /**
+     * Admin Setting
+     *
+     * @since 1.0.0
+     * @access protected
+     * @var object $admin_settings The class for managing admin settings
+     */
+	protected $admin_settings;
+
+    /**
+     * Posts List
+     *
+     * @since 1.0.0
+     * @access protected
+     * @var object $posts_list The class for managing aggregated posts
+     */
+	protected $posts_list;
+
 	/**
 	 * Initialize the class and set its properties.
 	 *
@@ -51,7 +69,7 @@ class Akolade_Aggregator_Admin {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-
+		$this->load_admin_dependencies();
 	}
 
 	/**
@@ -100,4 +118,46 @@ class Akolade_Aggregator_Admin {
 
 	}
 
+    private function load_admin_dependencies() {
+
+        /**
+         * The class responsible for managing admin settings
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-admin-settings.php';
+
+        /**
+         * The class responsible managing aggregated posts
+         */
+//        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-posts-list.php';
+
+        $this->admin_settings = new Akolade_Aggregator_Admin_Settings();
+//        $this->posts_list = new Akolade_Aggregator_Posts_list();
+
+    }
+
+    public function add_menu_page()
+    {
+        add_menu_page(
+            'Akolade Aggregator',
+            'Akolade Aggregator',
+            'manage_options',
+            'akolade_aggregator',
+            array($this, 'render_posts'),
+            '',
+            3
+        );
+
+        add_submenu_page('akolade_aggregator', 'Posts', 'Posts', 'manage_options', 'akolade_aggregator', array($this, 'render_posts'));
+        add_submenu_page('akolade_aggregator', 'Settings', 'Settings', 'manage_options', 'akolade_aggregator' . '-settings', array($this->admin_settings, 'render_settings'));
+    }
+
+    public function admin_settings()
+    {
+        return $this->admin_settings;
+    }
+
+    public function render_posts()
+    {
+        echo 'here';
+    }
 }
