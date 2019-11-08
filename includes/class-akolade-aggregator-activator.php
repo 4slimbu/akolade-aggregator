@@ -30,7 +30,32 @@ class Akolade_Aggregator_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-
+        self::create_plugin_database_table();
 	}
+
+    public static function create_plugin_database_table()
+    {
+        global $table_prefix, $wpdb;
+
+        $tblname = 'akolade_aggregator';
+        $wp_track_table = $table_prefix . $tblname;
+
+        #Check to see if the table exists already, if not, then create it
+        if($wpdb->get_var( "show tables like '$wp_track_table'" ) != $wp_track_table) {
+            $sql = "CREATE TABLE `". $wp_track_table . "` ( ";
+            $sql .= "  `id`  int(11)   NOT NULL auto_increment, ";
+            $sql .= "  `origin`  varchar(128)   NOT NULL, ";
+            $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
+            $sql .= "  `data`  mediumtext   NOT NULL, ";
+            $sql .= "  `status`  tinyint(4)   NOT NULL, ";
+            $sql .= "  `created_at`  timestamp   NOT NULL, ";
+            $sql .= "  PRIMARY KEY (`id`) ";
+            $sql .= "); ";
+
+            require_once( ABSPATH . '/wp-admin/includes/upgrade.php' );
+            dbDelta($sql);
+        }
+
+    }
 
 }

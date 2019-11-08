@@ -158,7 +158,8 @@ class Akolade_Aggregator {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_menu_page' );
         $this->loader->add_action( 'admin_init', $plugin_admin->admin_settings(), 'page_init' );
-	}
+        $this->loader->add_filter( 'set-screen-option', $plugin_admin->posts_list(), 'set_screen' );
+    }
 
 	/**
 	 * Register all of the hooks related to the public-facing functionality

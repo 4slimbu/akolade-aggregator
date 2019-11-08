@@ -3,6 +3,12 @@
 class Akolade_Aggregator_Admin_Settings
 {
     /**
+     * Self Instance
+     * @var
+     */
+    static $instance;
+
+    /**
      * Options
      *
      * @var mixed|void $options Stores options for plugin setting
@@ -12,6 +18,15 @@ class Akolade_Aggregator_Admin_Settings
     public function __construct()
     {
         $this->options = get_option( 'akolade-aggregator' );
+    }
+
+    /** Singleton instance */
+    public static function get_instance() {
+        if ( ! isset( self::$instance ) ) {
+            self::$instance = new self();
+        }
+
+        return self::$instance;
     }
 
     public function getOption($option)
@@ -147,13 +162,6 @@ class Akolade_Aggregator_Admin_Settings
             '<input type="checkbox" id="auto_publish" name="akolade-aggregator[auto_publish]" value="1"  %s/><br><small>If checked, the aggregated posts will be published automatically</small>',
             ($this->getOption('auto_publish')) ? 'checked' : ''
         );
-    }
-
-    public function admin_add_scripts($hook) {
-        if ( 'akolade_aggregator_settings' != $hook ) {
-            return;
-        }
-
     }
 
     public function render_settings()

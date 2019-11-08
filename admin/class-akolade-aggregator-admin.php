@@ -44,19 +44,19 @@ class Akolade_Aggregator_Admin {
      * Admin Setting
      *
      * @since 1.0.0
-     * @access protected
+     * @access public
      * @var object $admin_settings The class for managing admin settings
      */
-	protected $admin_settings;
+	public $admin_settings;
 
     /**
      * Posts List
      *
      * @since 1.0.0
-     * @access protected
+     * @access public
      * @var object $posts_list The class for managing aggregated posts
      */
-	protected $posts_list;
+	public $posts_list;
 
 	/**
 	 * Initialize the class and set its properties.
@@ -128,27 +128,47 @@ class Akolade_Aggregator_Admin {
         /**
          * The class responsible managing aggregated posts
          */
-//        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-posts-list.php';
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-posts-list.php';
 
-        $this->admin_settings = new Akolade_Aggregator_Admin_Settings();
-//        $this->posts_list = new Akolade_Aggregator_Posts_list();
+        /**
+         * The class representing aggregated post
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-post.php';
+
+        $this->admin_settings = Akolade_Aggregator_Admin_Settings::get_instance();
+        $this->posts_list = Akolade_Aggregator_Posts_List::get_instance();
 
     }
 
     public function add_menu_page()
     {
-        add_menu_page(
+        $hook = add_menu_page(
             'Akolade Aggregator',
             'Akolade Aggregator',
             'manage_options',
             'akolade_aggregator',
-            array($this, 'render_posts'),
+            array($this->posts_list(), 'render_posts'),
             '',
             3
         );
+        add_action( "load-$hook", [ $this->posts_list(), 'screen_option' ] );
 
-        add_submenu_page('akolade_aggregator', 'Posts', 'Posts', 'manage_options', 'akolade_aggregator', array($this, 'render_posts'));
-        add_submenu_page('akolade_aggregator', 'Settings', 'Settings', 'manage_options', 'akolade_aggregator' . '-settings', array($this->admin_settings, 'render_settings'));
+        add_submenu_page(
+            'akolade_aggregator',
+            'Posts', 'Posts',
+            'manage_options',
+            'akolade_aggregator',
+            array($this->posts_list(), 'render_posts')
+        );
+
+        add_submenu_page(
+            'akolade_aggregator',
+            'Settings',
+            'Settings',
+            'manage_options',
+            'akolade_aggregator' . '-settings',
+            array($this->admin_settings(), 'render_settings')
+        );
     }
 
     public function admin_settings()
@@ -156,8 +176,8 @@ class Akolade_Aggregator_Admin {
         return $this->admin_settings;
     }
 
-    public function render_posts()
+    public function posts_list()
     {
-        echo 'here';
+        return $this->posts_list;
     }
 }
