@@ -151,13 +151,16 @@ class Akolade_Aggregator {
 	 * @access   private
 	 */
 	private function define_admin_hooks() {
-
 		$plugin_admin = new Akolade_Aggregator_Admin( $this->get_plugin_name(), $this->get_version() );
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_menu_page' );
         $this->loader->add_action( 'admin_init', $plugin_admin->admin_settings(), 'page_init' );
+        $this->loader->add_action( 'save_post', $plugin_admin->exporter(), 'export', 10, 3 );
+        $this->loader->add_action( 'wp_ajax_akolade_aggregator_import', $plugin_admin->importer(), 'akolade_aggregator_import' );
+        $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'akolade_aggregator_import' );
+
         $this->loader->add_filter( 'set-screen-option', $plugin_admin->posts_list(), 'set_screen' );
     }
 

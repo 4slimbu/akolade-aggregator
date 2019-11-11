@@ -15,9 +15,6 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
  */
 class Akolade_Aggregator_Posts_List {
 
-    // class instance
-    static $instance;
-
     // customer WP_List_Table object
     public $aggregated_post;
 
@@ -65,16 +62,6 @@ class Akolade_Aggregator_Posts_List {
 
         add_screen_option( $option, $args );
         $this->aggregated_post = new Akolade_Aggregator_Post();
-    }
-
-
-    /** Singleton instance */
-    public static function get_instance() {
-        if ( ! isset( self::$instance ) ) {
-            self::$instance = new self();
-        }
-
-        return self::$instance;
     }
 
 }

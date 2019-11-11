@@ -58,6 +58,24 @@ class Akolade_Aggregator_Admin {
      */
 	public $posts_list;
 
+    /**
+     * Exporter Instance
+     *
+     * @since 1.0.0
+     * @access public
+     * @var object $exporter The class for exporting posts
+     */
+    public $exporter;
+
+    /**
+     * Importer Class Instance
+     *
+     * @since 1.0.0
+     * @access public
+     * @var object $exporter The class for importing posts
+     */
+    public $importer;
+
 	/**
 	 * Initialize the class and set its properties.
 	 *
@@ -135,9 +153,20 @@ class Akolade_Aggregator_Admin {
          */
         require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-post.php';
 
-        $this->admin_settings = Akolade_Aggregator_Admin_Settings::get_instance();
-        $this->posts_list = Akolade_Aggregator_Posts_List::get_instance();
+        /**
+         * The class responsible for handling import
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-importer.php';
 
+        /**
+         * The class responsible for handling export
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-exporter.php';
+
+        $this->admin_settings = new Akolade_Aggregator_Admin_Settings();
+        $this->posts_list = new Akolade_Aggregator_Posts_List();
+        $this->exporter = new Akolade_Aggregator_Exporter();
+        $this->importer = new Akolade_Aggregator_Importer();
     }
 
     public function add_menu_page()
@@ -179,5 +208,15 @@ class Akolade_Aggregator_Admin {
     public function posts_list()
     {
         return $this->posts_list;
+    }
+
+    public function exporter()
+    {
+        return $this->exporter;
+    }
+
+    public function importer()
+    {
+        return $this->importer;
     }
 }

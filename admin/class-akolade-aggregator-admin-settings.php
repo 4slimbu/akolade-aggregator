@@ -3,12 +3,6 @@
 class Akolade_Aggregator_Admin_Settings
 {
     /**
-     * Self Instance
-     * @var
-     */
-    static $instance;
-
-    /**
      * Options
      *
      * @var mixed|void $options Stores options for plugin setting
@@ -18,15 +12,6 @@ class Akolade_Aggregator_Admin_Settings
     public function __construct()
     {
         $this->options = get_option( 'akolade-aggregator' );
-    }
-
-    /** Singleton instance */
-    public static function get_instance() {
-        if ( ! isset( self::$instance ) ) {
-            self::$instance = new self();
-        }
-
-        return self::$instance;
     }
 
     public function getOption($option)
