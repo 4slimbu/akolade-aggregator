@@ -31,23 +31,21 @@ class Akolade_Aggregator_Importer {
 
     public function import()
     {
-        die('here');
         global $wpdb;
 
-        $sql = "SELECT * FROM {$wpdb->prefix}akolade_aggregator";
+        $data = $_POST['data'];
+        $post = $data['post'];
 
-        if ( ! empty( $_REQUEST['orderby'] ) ) {
-            $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
-            $sql .= ! empty( $_REQUEST['order'] ) ? ' ' . esc_sql( $_REQUEST['order'] ) : ' ASC';
-        }
-
-        $sql .= " LIMIT $per_page";
-        $sql .= ' OFFSET ' . ( $page_number - 1 ) * $per_page;
-
-
-        $result = $wpdb->get_results( $sql, 'ARRAY_A' );
-
-        return $result;
+        $wpdb->insert(
+            $wpdb->prefix . 'akolade_aggregator',
+            [
+                'origin' => 'akolade',
+                'post_type' => $post->post_type,
+                'post_title' => $post->post_title,
+                'data' => $data,
+                'status' => 0
+            ]
+        );
     }
 
     public function postToNetworkSites()

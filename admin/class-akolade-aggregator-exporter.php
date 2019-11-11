@@ -58,7 +58,7 @@ class Akolade_Aggregator_Exporter {
         $network_sites = $this->getOption('network_sites');
         if ($network_sites) {
             foreach ($network_sites as $network) {
-                $url = trailingslashit($network['url']) . '/wp-admin/admin-ajax.php';
+                $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
@@ -67,6 +67,9 @@ class Akolade_Aggregator_Exporter {
                     'headers' => array(
                     ),
                 ) );
+
+                var_dump($response);
+                die();
             }
         }
     }

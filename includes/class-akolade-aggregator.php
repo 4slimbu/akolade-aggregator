@@ -158,8 +158,8 @@ class Akolade_Aggregator {
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_menu_page' );
         $this->loader->add_action( 'admin_init', $plugin_admin->admin_settings(), 'page_init' );
         $this->loader->add_action( 'save_post', $plugin_admin->exporter(), 'export', 10, 3 );
-        $this->loader->add_action( 'wp_ajax_akolade_aggregator_import', $plugin_admin->importer(), 'akolade_aggregator_import' );
-        $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'akolade_aggregator_import' );
+        $this->loader->add_action( 'wp_ajax_akolade_aggregator_import', $plugin_admin->importer(), 'import' );
+        $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'import' );
 
         $this->loader->add_filter( 'set-screen-option', $plugin_admin->posts_list(), 'set_screen' );
     }
