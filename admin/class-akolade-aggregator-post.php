@@ -6,8 +6,8 @@ class Akolade_Aggregator_Post extends WP_List_Table {
     public function __construct() {
 
         parent::__construct( [
-            'singular' => __( 'Customer', 'akolade-aggregator' ),
-            'plural'   => __( 'Customers', 'akolade-aggregator' ),
+            'singular' => __( 'Post', 'akolade-aggregator' ),
+            'plural'   => __( 'Posts', 'akolade-aggregator' ),
             'ajax'     => false,
             'screen' => 'wp_screen'
         ] );
@@ -16,18 +16,18 @@ class Akolade_Aggregator_Post extends WP_List_Table {
 
 
     /**
-     * Retrieve customers data from the database
+     * Retrieve posts data from the database
      *
      * @param int $per_page
      * @param int $page_number
      *
      * @return mixed
      */
-    public static function get_customers( $per_page = 5, $page_number = 1 ) {
+    public static function get_posts( $per_page = 5, $page_number = 1 ) {
 
         global $wpdb;
 
-        $sql = "SELECT * FROM {$wpdb->prefix}customers";
+        $sql = "SELECT * FROM {$wpdb->prefix}akolade_aggregator";
 
         if ( ! empty( $_REQUEST['orderby'] ) ) {
             $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
@@ -45,16 +45,16 @@ class Akolade_Aggregator_Post extends WP_List_Table {
 
 
     /**
-     * Delete a customer record.
+     * Delete a post record.
      *
-     * @param int $id customer ID
+     * @param int $id post ID
      */
-    public static function delete_customer( $id ) {
+    public static function delete_post( $id ) {
         global $wpdb;
 
         $wpdb->delete(
-            "{$wpdb->prefix}customers",
-            [ 'ID' => $id ],
+            "{$wpdb->prefix}akolade_aggregator",
+            [ 'id' => $id ],
             [ '%d' ]
         );
     }
@@ -68,15 +68,15 @@ class Akolade_Aggregator_Post extends WP_List_Table {
     public static function record_count() {
         global $wpdb;
 
-        $sql = "SELECT COUNT(*) FROM {$wpdb->prefix}customers";
+        $sql = "SELECT COUNT(*) FROM {$wpdb->prefix}akolade_aggregator";
 
         return $wpdb->get_var( $sql );
     }
 
 
-    /** Text displayed when no customer data is available */
+    /** Text displayed when no post data is available */
     public function no_items() {
-        _e( 'No customers avaliable.', 'akolade-aggregator' );
+        _e( 'No posts avaliable.', 'akolade-aggregator' );
     }
 
 
@@ -90,8 +90,11 @@ class Akolade_Aggregator_Post extends WP_List_Table {
      */
     public function column_default( $item, $column_name ) {
         switch ( $column_name ) {
-            case 'address':
-            case 'city':
+            case 'post_title':
+            case 'origin':
+            case 'post_type':
+            case 'status':
+            case 'created_at':
                 return $item[ $column_name ];
             default:
                 return print_r( $item, true ); //Show the whole array for troubleshooting purposes
@@ -107,26 +110,26 @@ class Akolade_Aggregator_Post extends WP_List_Table {
      */
     function column_cb( $item ) {
         return sprintf(
-            '<input type="checkbox" name="bulk-delete[]" value="%s" />', $item['ID']
+            '<input type="checkbox" name="bulk-delete[]" value="%s" />', $item['id']
         );
     }
 
 
     /**
-     * Method for name column
+     * Method for post_title column
      *
      * @param array $item an array of DB data
      *
      * @return string
      */
-    function column_name( $item ) {
+    function column_post_title( $item ) {
 
-        $delete_nonce = wp_create_nonce( 'sp_delete_customer' );
+        $delete_nonce = wp_create_nonce( 'ak_delete_post' );
 
-        $title = '<strong>' . $item['name'] . '</strong>';
+        $title = '<strong>' . $item['post_title'] . '</strong>';
 
         $actions = [
-            'delete' => sprintf( '<a href="?page=%s&action=%s&customer=%s&_wpnonce=%s">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['ID'] ), $delete_nonce )
+            'delete' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $delete_nonce )
         ];
 
         return $title . $this->row_actions( $actions );
@@ -141,9 +144,11 @@ class Akolade_Aggregator_Post extends WP_List_Table {
     function get_columns() {
         $columns = [
             'cb'      => '<input type="checkbox" />',
-            'name'    => __( 'Name', 'akolade-aggregator' ),
-            'address' => __( 'Address', 'akolade-aggregator' ),
-            'city'    => __( 'City', 'akolade-aggregator' )
+            'post_title'    => __( 'Title', 'akolade-aggregator' ),
+            'origin'    => __( 'Origin', 'akolade-aggregator' ),
+            'post_type' => __( 'Post Type', 'akolade-aggregator' ),
+            'status'    => __( 'Status', 'akolade-aggregator' ),
+            'created_at'    => __( 'Created At', 'akolade-aggregator' ),
         ];
 
         return $columns;
@@ -157,8 +162,9 @@ class Akolade_Aggregator_Post extends WP_List_Table {
      */
     public function get_sortable_columns() {
         $sortable_columns = array(
-            'name' => array( 'name', true ),
-            'city' => array( 'city', false )
+            'post_title' => array( 'post_title', true ),
+            'origin' => array( 'origin', false ),
+            'post_type' => array( 'post_type', false )
         );
 
         return $sortable_columns;
@@ -188,7 +194,7 @@ class Akolade_Aggregator_Post extends WP_List_Table {
         /** Process bulk action */
         $this->process_bulk_action();
 
-        $per_page     = $this->get_items_per_page( 'customers_per_page', 5 );
+        $per_page     = $this->get_items_per_page( 'posts_per_page', 5 );
         $current_page = $this->get_pagenum();
         $total_items  = self::record_count();
 
@@ -197,7 +203,7 @@ class Akolade_Aggregator_Post extends WP_List_Table {
             'per_page'    => $per_page //WE have to determine how many items to show on a page
         ] );
 
-        $this->items = self::get_customers( $per_page, $current_page );
+        $this->items = self::get_posts( $per_page, $current_page );
     }
 
     public function process_bulk_action() {
@@ -208,11 +214,11 @@ class Akolade_Aggregator_Post extends WP_List_Table {
             // In our file that handles the request, verify the nonce.
             $nonce = esc_attr( $_REQUEST['_wpnonce'] );
 
-            if ( ! wp_verify_nonce( $nonce, 'sp_delete_customer' ) ) {
+            if ( ! wp_verify_nonce( $nonce, 'ak_delete_post' ) ) {
                 die( 'Go get a life script kiddies' );
             }
             else {
-                self::delete_customer( absint( $_GET['customer'] ) );
+                self::delete_post( absint( $_GET['post'] ) );
 
                 // esc_url_raw() is used to prevent converting ampersand in url to "#038;"
                 // add_query_arg() return the current url
@@ -231,7 +237,7 @@ class Akolade_Aggregator_Post extends WP_List_Table {
 
             // loop over the array of record IDs and delete them
             foreach ( $delete_ids as $id ) {
-                self::delete_customer( $id );
+                self::delete_post( $id );
 
             }
 

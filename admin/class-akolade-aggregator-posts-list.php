@@ -41,19 +41,12 @@ class Akolade_Aggregator_Posts_List {
         <div class="wrap">
             <h2>Aggregated Posts</h2>
 
-            <div id="poststuff">
-                <div id="post-body" class="metabox-holder columns-2">
-                    <div id="post-body-content">
-                        <div class="meta-box-sortables ui-sortable">
-                            <form method="post">
-                                <?php
-                                $this->aggregated_post->prepare_items();
-                                $this->aggregated_post->display(); ?>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <br class="clear">
+            <div class="meta-box-sortables ui-sortable">
+                <form method="post">
+                    <?php
+                    $this->aggregated_post->prepare_items();
+                    $this->aggregated_post->display(); ?>
+                </form>
             </div>
         </div>
         <?php

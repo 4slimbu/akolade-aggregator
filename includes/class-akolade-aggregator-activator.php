@@ -44,6 +44,8 @@ class Akolade_Aggregator_Activator {
         if($wpdb->get_var( "show tables like '$wp_track_table'" ) != $wp_track_table) {
             $sql = "CREATE TABLE `". $wp_track_table . "` ( ";
             $sql .= "  `id`  int(11)   NOT NULL auto_increment, ";
+            $sql .= "  `post_id`  varchar(128)   NULL, ";
+            $sql .= "  `post_title`  varchar(128)   NOT NULL, ";
             $sql .= "  `origin`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
