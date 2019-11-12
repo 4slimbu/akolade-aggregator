@@ -38,6 +38,14 @@ class Akolade_Aggregator_Admin_Settings
         );
 
         add_settings_field(
+            'origin',
+            'Origin',
+            array( $this, 'origin_callback' ),
+            'akolade-aggregator-settings',
+            'main-section'
+        );
+
+        add_settings_field(
             'access_token',
             'Access Token',
             array( $this, 'access_token_callback' ),
@@ -74,6 +82,9 @@ class Akolade_Aggregator_Admin_Settings
     {
         $new_input = array();
 
+        if( isset( $input['origin'] ) )
+            $new_input['origin'] = sanitize_text_field( $input['origin'] );
+
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
 
@@ -85,6 +96,18 @@ class Akolade_Aggregator_Admin_Settings
 
         return $new_input;
     }
+
+    /**
+     * Get the origin
+     */
+    public function origin_callback()
+    {
+        printf(
+            '<input type="text" id="origin" class="form-input" name="akolade-aggregator[origin]" value="%s"  /><br /><small>Channel or origin slug under which posts will be assigned when posting.</small>',
+            $this->getOption('origin') ? esc_attr( $this->getOption('origin')) : ''
+        );
+    }
+
 
     /**
      * Get the settings option array and print one of its values

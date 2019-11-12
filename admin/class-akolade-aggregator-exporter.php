@@ -34,7 +34,11 @@ class Akolade_Aggregator_Exporter {
         $data = [];
 
         $data['post'] = $post;
+        $data['post_origin'] = $this->getOption('origin');
         $data['post_meta'] = get_post_meta($post->ID);
+
+        // Author
+        $data['post_author'] = get_userdata($post->post_author);
 
         // Terms
         $taxonomies = get_taxonomies();
@@ -55,24 +59,33 @@ class Akolade_Aggregator_Exporter {
             $data['post_images'] = wp_get_attachment_url($attachment->ID);
         }
 
+        // Post to network sites
         $network_sites = $this->getOption('network_sites');
+        $this->postToNetworkSites($network_sites, $data);
+    }
+
+    public function postToNetworkSites($network_sites, $data)
+    {
         if ($network_sites) {
             foreach ($network_sites as $network) {
-                $url = trailingslashit($network['url']) . '/wp-admin/admin-ajax.php';
+                $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
-                        'data' => $data
+                        'data' => $data,
                     ],
                     'headers' => array(
+                        'Content-type' => 'application/x-www-form-urlencoded'
                     ),
                 ) );
+
+                if ( is_wp_error( $response ) ) {
+                    error_log($response->get_error_message());
+                } else {
+                    var_dump(wp_remote_retrieve_body($response));
+                    die();
+                }
             }
         }
-    }
-
-    public function postToNetworkSites()
-    {
-
     }
 }

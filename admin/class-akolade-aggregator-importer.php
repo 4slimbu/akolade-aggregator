@@ -31,21 +31,45 @@ class Akolade_Aggregator_Importer {
 
     public function import()
     {
-        die('here');
         global $wpdb;
 
-        $sql = "SELECT * FROM {$wpdb->prefix}akolade_aggregator";
+        $data = $_POST['data'];
+        $post = $data['post'];
+        $post_name = $post['post_name'];
+        $post_type = $post['post_type'];
+        $origin = $data['post_origin'];
 
-        if ( ! empty( $_REQUEST['orderby'] ) ) {
-            $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
-            $sql .= ! empty( $_REQUEST['order'] ) ? ' ' . esc_sql( $_REQUEST['order'] ) : ' ASC';
+        $row = [
+            'post_title' => $post['post_title'],
+            'post_name' => $post_name,
+            'origin' => $origin,
+            'post_type' => $post_type,
+            'data' => json_encode($data),
+            'status' => 0
+        ];
+
+
+        $post_in_db = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM `{$wpdb->prefix}akolade_aggregator` WHERE `post_name` = %1$s AND `post_type` = %2$s",
+            $post_name,
+            $post_type
+        ));
+
+        if ($post_in_db) {
+            $result = $wpdb->update(
+                $wpdb->prefix . 'akolade_aggregator',
+                $row,
+                [
+                    'post_name' => $post_name,
+                    'post_type' => $post_type
+                ]
+            );
+        } else {
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'akolade_aggregator',
+                $row
+            );
         }
-
-        $sql .= " LIMIT $per_page";
-        $sql .= ' OFFSET ' . ( $page_number - 1 ) * $per_page;
-
-
-        $result = $wpdb->get_results( $sql, 'ARRAY_A' );
 
         return $result;
     }
