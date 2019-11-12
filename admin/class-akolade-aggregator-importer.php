@@ -24,6 +24,31 @@ class Akolade_Aggregator_Importer {
         $this->options = get_option( 'akolade-aggregator' );
     }
 
+    public function getStatusValue($status)
+    {
+        // Check activator file for table schema for more information
+        // up-to-date (0), new (1), update (2)
+        $status_value = 0;
+
+        switch ($status) {
+            case 'up-to-date':
+                $status_value = 0;
+                break;
+            case 'new':
+                $status_value = 1;
+                break;
+            case 'update':
+                $status_value = 2;
+                break;
+            case 'cancelled':
+                $status_value = 2;
+                break;
+            default;
+        }
+
+        return $status_value;
+    }
+
     public function getOption($option)
     {
         return isset($this->options[$option]) ? $this->options[$option] : null;
@@ -45,7 +70,7 @@ class Akolade_Aggregator_Importer {
             'origin' => $origin,
             'post_type' => $post_type,
             'data' => json_encode($data),
-            'status' => 0
+            'status' => $this->getStatusValue('new'),
         ];
 
         $post_in_db = $wpdb->get_var($wpdb->prepare(
@@ -55,6 +80,7 @@ class Akolade_Aggregator_Importer {
         ));
 
         if ($post_in_db) {
+            $row['status'] = $this->getStatusValue('update');
             $result = $wpdb->update(
                 $wpdb->prefix . 'akolade_aggregator',
                 $row,
