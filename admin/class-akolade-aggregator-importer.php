@@ -29,7 +29,7 @@ class Akolade_Aggregator_Importer {
         return isset($this->options[$option]) ? $this->options[$option] : null;
     }
 
-    public function import()
+    public function handle()
     {
         global $wpdb;
 
@@ -48,9 +48,8 @@ class Akolade_Aggregator_Importer {
             'status' => 0
         ];
 
-
-        $post_in_db = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM `{$wpdb->prefix}akolade_aggregator` WHERE `post_name` = %1$s AND `post_type` = %2$s",
+        $post_in_db = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}akolade_aggregator` WHERE `post_name` = %s AND `post_type` = %s",
             $post_name,
             $post_type
         ));
@@ -74,8 +73,42 @@ class Akolade_Aggregator_Importer {
         return $result;
     }
 
-    public function postToNetworkSites()
+    public function import($id)
     {
+        global $wpdb;
+        $post_to_import = $wpdb->get_row($wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}akolade_aggregator` WHERE `id` = %s",
+            $id
+        ));
 
+        if (! $post_to_import) {
+            return;
+        }
+
+        $this->importPost();
+        $this->importPostMeta();
+        $this->importPostAuthor();
+        $this->importPostMedia();
+        $this->importPostTerms();
+    }
+
+    private function importPost()
+    {
+    }
+
+    private function importPostMeta()
+    {
+    }
+
+    private function importPostAuthor()
+    {
+    }
+
+    private function importPostMedia()
+    {
+    }
+
+    private function importPostTerms()
+    {
     }
 }

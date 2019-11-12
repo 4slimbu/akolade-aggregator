@@ -52,7 +52,6 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `data`  mediumtext   NOT NULL, ";
             $sql .= "  `status`  tinyint(4)   NOT NULL, ";
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
-            $sql .= "  `updated_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";
 

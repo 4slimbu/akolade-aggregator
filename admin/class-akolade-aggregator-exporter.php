@@ -29,7 +29,7 @@ class Akolade_Aggregator_Exporter {
         return isset($this->options[$option]) ? $this->options[$option] : null;
     }
 
-    public function export($post_id, $post, $update)
+    public function handle($post_id, $post, $update)
     {
         $data = [];
 
@@ -82,8 +82,8 @@ class Akolade_Aggregator_Exporter {
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
                 } else {
-                    var_dump(wp_remote_retrieve_body($response));
-                    die();
+//                    var_dump(wp_remote_retrieve_body($response));
+//                    die();
                 }
             }
         }
