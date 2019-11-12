@@ -50,7 +50,8 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `origin`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
-            $sql .= "  `status`  tinyint(4)   NOT NULL, ";
+            $sql .= "  `publish_status`  tinyint(4)   NOT NULL, "; // pending (0), draft (1), published (2)
+            $sql .= "  `import_status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2)
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";

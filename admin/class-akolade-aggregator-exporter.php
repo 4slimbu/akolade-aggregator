@@ -19,6 +19,8 @@ class Akolade_Aggregator_Exporter {
      */
     private $options;
 
+    private $exportable = ['post', 'jobs', 'retail_events'];
+
     public function __construct()
     {
         $this->options = get_option( 'akolade-aggregator' );
@@ -31,8 +33,22 @@ class Akolade_Aggregator_Exporter {
 
     public function handle($post_id, $post, $update)
     {
-        $data = [];
+        // Check to see if we are autosaving
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)
+            return;
 
+        // Check if new unpublished post
+        if (!$post->post_name) {
+            return;
+        }
+
+        // Check if exportable
+        if (! in_array($post->post_type, $this->exportable)) {
+            return;
+        }
+
+        // data to post
+        $data = [];
         $data['post'] = $post;
         $data['post_origin'] = $this->getOption('origin');
         $data['post_meta'] = get_post_meta($post->ID);
@@ -70,6 +86,10 @@ class Akolade_Aggregator_Exporter {
             foreach ($network_sites as $network) {
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
+                    'method' => 'POST',
+                    'timeout' => 5,
+                    'redirection' => 5,
+                    'blocking' => false,
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,

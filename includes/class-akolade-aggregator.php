@@ -157,7 +157,7 @@ class Akolade_Aggregator {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_menu_page' );
         $this->loader->add_action( 'admin_init', $plugin_admin->admin_settings(), 'page_init' );
-        $this->loader->add_action( 'publish_post', $plugin_admin->exporter(), 'handle', 10, 3 );
+        $this->loader->add_action( 'post_updated', $plugin_admin->exporter(), 'handle', 10, 3 );
         $this->loader->add_action( 'wp_ajax_akolade_aggregator_import', $plugin_admin->importer(), 'handle' );
         $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'handle' );
 

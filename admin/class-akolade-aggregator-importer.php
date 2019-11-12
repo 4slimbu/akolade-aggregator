@@ -63,12 +63,18 @@ class Akolade_Aggregator_Importer {
                     'post_type' => $post_type
                 ]
             );
+
+            $last_id = $post_in_db->id;
         } else {
             $result = $wpdb->insert(
                 $wpdb->prefix . 'akolade_aggregator',
                 $row
             );
+
+            $last_id = $wpdb->insert_id;
         }
+
+        $this->import($last_id);
 
         return $result;
     }
@@ -85,15 +91,20 @@ class Akolade_Aggregator_Importer {
             return;
         }
 
-        $this->importPost();
-        $this->importPostMeta();
-        $this->importPostAuthor();
-        $this->importPostMedia();
-        $this->importPostTerms();
+        $this->importPost($post_to_import);
+//        $this->importPostMeta();
+//        $this->importPostAuthor();
+//        $this->importPostMedia();
+//        $this->importPostTerms();
     }
 
-    private function importPost()
+    private function importPost($post, $status = 'draft')
     {
+        $post = (array)$post;
+        unset($post['ID']);
+        $post['post_status'] = $status;
+
+        wp_insert_post($post);
     }
 
     private function importPostMeta()
