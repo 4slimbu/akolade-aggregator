@@ -19,6 +19,14 @@ class Akolade_Aggregator_Importer {
      */
     private $options;
 
+    private $post_fields = [
+        'post_content' => '',
+        'post_title' => '',
+        'post_excerpt' => '',
+        'post_status' => 'draft',
+        'post_name' => ''
+    ];
+
     public function __construct()
     {
         $this->options = get_option( 'akolade-aggregator' );
@@ -73,13 +81,13 @@ class Akolade_Aggregator_Importer {
             'status' => $this->getStatusValue('new'),
         ];
 
-        $post_in_db = $wpdb->get_var($wpdb->prepare(
+        $post_id = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM `{$wpdb->prefix}akolade_aggregator` WHERE `post_name` = %s AND `post_type` = %s",
             $post_name,
             $post_type
         ));
 
-        if ($post_in_db) {
+        if ($post_id) {
             $row['status'] = $this->getStatusValue('update');
             $result = $wpdb->update(
                 $wpdb->prefix . 'akolade_aggregator',
@@ -89,8 +97,7 @@ class Akolade_Aggregator_Importer {
                     'post_type' => $post_type
                 ]
             );
-
-            $last_id = $post_in_db->id;
+            $last_id = $post_id;
         } else {
             $result = $wpdb->insert(
                 $wpdb->prefix . 'akolade_aggregator',
@@ -108,29 +115,40 @@ class Akolade_Aggregator_Importer {
     public function import($id)
     {
         global $wpdb;
-        $post_to_import = $wpdb->get_row($wpdb->prepare(
-            "SELECT COUNT(*) FROM `{$wpdb->prefix}akolade_aggregator` WHERE `id` = %s",
+        $import_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM `{$wpdb->prefix}akolade_aggregator` WHERE `id` = %s",
             $id
         ));
 
-        if (! $post_to_import) {
+        if (! $import_data) {
             return;
         }
 
-        $this->importPost($post_to_import);
+        $this->importPost($import_data);
 //        $this->importPostMeta();
 //        $this->importPostAuthor();
 //        $this->importPostMedia();
 //        $this->importPostTerms();
     }
 
-    private function importPost($post, $status = 'draft')
+    private function importPost($import_data)
     {
-        $post = (array)$post;
-        unset($post['ID']);
-        $post['post_status'] = $status;
+        $post_id = $import_data->post_id;
+        $post_name = $import_data->post_name;
+        $post_origin = $import_data->origin;
+        $post_type = $import_data->post_type;
+        $data = json_decode($import_data->data);
+        $post = (array)$data->post;
+        $post_origin = $data->post_origin;
+        $post_meta = $data->post_meta;
+        $post_author = $data->post_author;
+        $post_terms = $data->post_terms;
 
-        wp_insert_post($post);
+//        $post['post_status'] = $this->getOption('auto_publish') ? 'published' : 'draft';
+        $post['post_status'] = 'published';
+        $fillable_post_data = array_intersect_key($post, $this->post_fields);
+
+        wp_insert_post($fillable_post_data);
     }
 
     private function importPostMeta()
