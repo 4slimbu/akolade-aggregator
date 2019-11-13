@@ -102,7 +102,7 @@ class Akolade_Aggregator_Exporter {
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
                 } else {
-//                    var_dump(wp_remote_retrieve_body($response));
+//                    var_dump($response, wp_remote_retrieve_body($response));
 //                    die();
                 }
             }

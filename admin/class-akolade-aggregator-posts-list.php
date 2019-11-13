@@ -1,6 +1,6 @@
 <?php
-if ( ! class_exists( 'WP_List_Table' ) ) {
-    require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+if ( ! class_exists( 'Akolade_Aggregator_WP_List_Table' ) ) {
+    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-wp-list-table.php';
 }
 
 /**
@@ -42,7 +42,10 @@ class Akolade_Aggregator_Posts_List {
                 <form method="post">
                     <?php
                     $this->aggregated_post->prepare_items();
-                    $this->aggregated_post->display(); ?>
+                    $this->aggregated_post->views();
+                    $this->aggregated_post->search_box('search', 'search_id');
+                    $this->aggregated_post->display();
+                    ?>
                 </form>
             </div>
         </div>

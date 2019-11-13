@@ -1,6 +1,6 @@
 <?php
 
-class Akolade_Aggregator_Post extends WP_List_Table {
+class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
 
     /** Class constructor */
     public function __construct() {
@@ -91,11 +91,30 @@ class Akolade_Aggregator_Post extends WP_List_Table {
     public function column_default( $item, $column_name ) {
         switch ( $column_name ) {
             case 'post_title':
+                return $item[ $column_name ];
+                break;
             case 'origin':
+                return $item[ $column_name ];
+                break;
             case 'post_type':
+                return $item[ $column_name ];
+                break;
             case 'status':
+                $status_value = '';
+
+                if ((int)$item[ $column_name ] === 1) {
+                    $status_value = 'New';
+                }
+
+                if ((int) $item[ $column_name ] === 2) {
+                    $status_value = 'Update';
+                }
+
+                return $status_value;
+                break;
             case 'created_at':
                 return $item[ $column_name ];
+                break;
             default:
                 return print_r( $item, true ); //Show the whole array for troubleshooting purposes
         }
@@ -124,12 +143,14 @@ class Akolade_Aggregator_Post extends WP_List_Table {
      */
     function column_post_title( $item ) {
 
-        $delete_nonce = wp_create_nonce( 'ak_delete_post' );
+        $delete_nonce = wp_create_nonce( 'ak_post_action_nonce' );
 
         $title = '<strong>' . $item['post_title'] . '</strong>';
 
         $actions = [
-            'delete' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $delete_nonce )
+            'delete' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $delete_nonce ),
+            'save-as-draft' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Save as draft</a>', esc_attr( $_REQUEST['page'] ), 'save-as-draft', absint( $item['id'] ), $delete_nonce ),
+            'publish' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Publish</a>', esc_attr( $_REQUEST['page'] ), 'publish', absint( $item['id'] ), $delete_nonce )
         ];
 
         return $title . $this->row_actions( $actions );
@@ -148,7 +169,7 @@ class Akolade_Aggregator_Post extends WP_List_Table {
             'origin'    => __( 'Origin', 'akolade-aggregator' ),
             'post_type' => __( 'Post Type', 'akolade-aggregator' ),
             'status'    => __( 'Status', 'akolade-aggregator' ),
-            'created_at'    => __( 'Created At', 'akolade-aggregator' ),
+            'created_at'    => __( 'Date', 'akolade-aggregator' ),
         ];
 
         return $columns;
@@ -177,7 +198,9 @@ class Akolade_Aggregator_Post extends WP_List_Table {
      */
     public function get_bulk_actions() {
         $actions = [
-            'bulk-delete' => 'Delete'
+            'bulk-delete' => 'Delete',
+            'bulk-save-as-draft' => 'Save as Draft',
+            'bulk-publish' => 'Publish'
         ];
 
         return $actions;
@@ -214,7 +237,7 @@ class Akolade_Aggregator_Post extends WP_List_Table {
             // In our file that handles the request, verify the nonce.
             $nonce = esc_attr( $_REQUEST['_wpnonce'] );
 
-            if ( ! wp_verify_nonce( $nonce, 'ak_delete_post' ) ) {
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
                 die( 'Go get a life script kiddies' );
             }
             else {
@@ -246,6 +269,81 @@ class Akolade_Aggregator_Post extends WP_List_Table {
             wp_redirect( esc_url_raw(add_query_arg()) );
             exit;
         }
+    }
+
+    protected function get_views() {
+        $views = array();
+        $current = ( !empty($_REQUEST['status']) ? $_REQUEST['status'] : 'all');
+
+        //All
+        $class = ($current == 'all' ? ' class="current"' :'');
+        $all_url = remove_query_arg('status');
+        $views['all'] = "<a href='{$all_url }' {$class} >All</a>";
+
+        //Pending
+        $foo_url = add_query_arg('status','pending');
+        $class = ($current == 'pending' ? ' class="current"' :'');
+        $views['pending'] = "<a href='{$foo_url}' {$class} >Pending</a>";
+
+        //Completed
+        $bar_url = add_query_arg('status','completed');
+        $class = ($current == 'completed' ? ' class="current"' :'');
+        $views['completed'] = "<a href='{$bar_url}' {$class} >Completed</a>";
+
+        return $views;
+    }
+
+    /**
+     * Extra controls to be displayed between bulk actions and pagination
+     *
+     * @since 3.1.0
+     *
+     * @param string $which
+     */
+    protected function extra_tablenav( $which ) {
+        ?>
+        <?php if ( $this->has_items() ) : ?>
+            <div class="alignleft actions bulkactions">
+                <?php $this->post_filter( $which ); ?>
+            </div>
+        <?php endif; ?>
+        <?php
+    }
+
+    /**
+     * Display the post filter dropdown.
+     *
+     * @since 3.1.0
+     *
+     * @param string $which The location of the post filter: 'top' or 'bottom'.
+     *                      This is designated as optional for backward compatibility.
+     */
+    protected function post_filter( $which = '' ) {
+        if ( is_null( $this->_actions ) ) {
+            $this->_actions = $this->get_post_filter_actions();
+            $two = '';
+        } else {
+            $two = '2';
+        }
+
+        if ( empty( $this->_actions ) ) {
+            return;
+        }
+
+        echo '<label for="bulk-action-selector-' . esc_attr( $which ) . '" class="screen-reader-text">' . __( 'Select bulk action' ) . '</label>';
+        echo '<select name="action' . $two . '" id="bulk-action-selector-' . esc_attr( $which ) . "\">\n";
+        echo '<option value="-1">' . __( 'All Channels' ) . "</option>\n";
+
+        foreach ( $this->_actions as $name => $title ) {
+            $class = 'edit' === $name ? ' class="hide-if-no-js"' : '';
+
+            echo "\t" . '<option value="' . $name . '"' . $class . '>' . $title . "</option>\n";
+        }
+
+        echo "</select>\n";
+
+        submit_button( __( 'Filter' ), 'action', '', false, array( 'id' => "doaction$two" ) );
+        echo "\n";
     }
 
 }
