@@ -86,10 +86,10 @@ class Akolade_Aggregator_Exporter {
             foreach ($network_sites as $network) {
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
-//                    'method' => 'POST',
-//                    'timeout' => 5,
-//                    'redirection' => 5,
-//                    'blocking' => false,
+                    'method' => 'POST',
+                    'timeout' => 5,
+                    'redirection' => 5,
+                    'blocking' => false,
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,
@@ -102,9 +102,9 @@ class Akolade_Aggregator_Exporter {
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
                 } else {
-                    echo '<pre>';
-                    var_dump( wp_remote_retrieve_body($response));
-                    die();
+//                    echo '<pre>';
+//                    var_dump( wp_remote_retrieve_body($response));
+//                    die();
                 }
             }
         }

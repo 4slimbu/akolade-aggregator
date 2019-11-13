@@ -17,7 +17,8 @@ class Akolade_Aggregator_Importer {
         'post_title' => '',
         'post_excerpt' => '',
         'post_status' => 'draft',
-        'post_name' => ''
+        'post_name' => '',
+        'post_type' => 'post'
     ];
 
     private $db;
@@ -56,7 +57,7 @@ class Akolade_Aggregator_Importer {
         }
 
         if ($this->db->get_option('auto_publish')) {
-            $this->import($last_id);
+            $this->import($last_id, 'publish');
         }
 
         return $result;
@@ -70,11 +71,14 @@ class Akolade_Aggregator_Importer {
             return;
         }
 
+        $author_id = $this->importAuthor();
+        $term_ids = $this->importTerms();
+        $medias = $this->importMedia();
         $this->importPost($import_data, $status);
-//        $this->importPostMeta();
-//        $this->importPostAuthor();
-//        $this->importPostMedia();
-//        $this->importPostTerms();
+        $this->assignPostAuthor($author_id);
+        $this->assignPostTerms($term_ids);
+        $this->assignMediaToPosts($medias);
+        $this->importPostMeta();
     }
 
     private function importPost($import_data, $status = 'draft')
@@ -91,6 +95,8 @@ class Akolade_Aggregator_Importer {
         $post_terms = $data->post_terms;
 
         $post['post_status'] = $status;
+        var_dump($post);
+        die();
         $fillable_post_data = array_intersect_key($post, $this->post_fields);
 
         $post_id = $this->db->post_exists($post_name, $post_type);
