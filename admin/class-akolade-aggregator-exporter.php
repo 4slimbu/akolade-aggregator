@@ -26,7 +26,7 @@ class Akolade_Aggregator_Exporter {
         $this->options = get_option( 'akolade-aggregator' );
     }
 
-    public function getOption($option)
+    public function get_option($option)
     {
         return isset($this->options[$option]) ? $this->options[$option] : null;
     }
@@ -50,7 +50,7 @@ class Akolade_Aggregator_Exporter {
         // data to post
         $data = [];
         $data['post'] = $post;
-        $data['post_origin'] = $this->getOption('origin');
+        $data['post_channel'] = $this->get_option('channel');
         $data['post_meta'] = get_post_meta($post->ID);
 
         // Author
@@ -76,7 +76,7 @@ class Akolade_Aggregator_Exporter {
         }
 
         // Post to network sites
-        $network_sites = $this->getOption('network_sites');
+        $network_sites = $this->get_option('network_sites');
         $this->postToNetworkSites($network_sites, $data);
     }
 
@@ -86,10 +86,10 @@ class Akolade_Aggregator_Exporter {
             foreach ($network_sites as $network) {
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
-                    'method' => 'POST',
-                    'timeout' => 5,
-                    'redirection' => 5,
-                    'blocking' => false,
+//                    'method' => 'POST',
+//                    'timeout' => 5,
+//                    'redirection' => 5,
+//                    'blocking' => false,
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,
@@ -102,8 +102,9 @@ class Akolade_Aggregator_Exporter {
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
                 } else {
-//                    var_dump($response, wp_remote_retrieve_body($response));
-//                    die();
+                    echo '<pre>';
+                    var_dump( wp_remote_retrieve_body($response));
+                    die();
                 }
             }
         }

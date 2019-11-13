@@ -38,9 +38,9 @@ class Akolade_Aggregator_Admin_Settings
         );
 
         add_settings_field(
-            'origin',
-            'Origin',
-            array( $this, 'origin_callback' ),
+            'channel',
+            'Channel',
+            array( $this, 'channel_callback' ),
             'akolade-aggregator-settings',
             'main-section'
         );
@@ -82,8 +82,8 @@ class Akolade_Aggregator_Admin_Settings
     {
         $new_input = array();
 
-        if( isset( $input['origin'] ) )
-            $new_input['origin'] = sanitize_text_field( $input['origin'] );
+        if( isset( $input['channel'] ) )
+            $new_input['channel'] = sanitize_text_field( $input['channel'] );
 
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
@@ -98,13 +98,13 @@ class Akolade_Aggregator_Admin_Settings
     }
 
     /**
-     * Get the origin
+     * Get the channel
      */
-    public function origin_callback()
+    public function channel_callback()
     {
         printf(
-            '<input type="text" id="origin" class="form-input" name="akolade-aggregator[origin]" value="%s"  /><br /><small>Channel or origin slug under which posts will be assigned when posting.</small>',
-            $this->getOption('origin') ? esc_attr( $this->getOption('origin')) : ''
+            '<input type="text" id="channel" class="form-input" name="akolade-aggregator[channel]" value="%s"  /><br /><small>Channel slug for this site.</small>',
+            $this->getOption('channel') ? esc_attr( $this->getOption('channel')) : ''
         );
     }
 

@@ -47,7 +47,7 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `post_id`  varchar(128)   NULL, ";
             $sql .= "  `post_title`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_name`  varchar(128)   NOT NULL, ";
-            $sql .= "  `origin`  varchar(128)   NOT NULL, ";
+            $sql .= "  `channel`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
             $sql .= "  `status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2)

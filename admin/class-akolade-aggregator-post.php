@@ -1,6 +1,8 @@
 <?php
 
 class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
+    private $db;
+    private $importer;
 
     /** Class constructor */
     public function __construct() {
@@ -12,35 +14,8 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             'screen' => 'wp_screen'
         ] );
 
-    }
-
-
-    /**
-     * Retrieve posts data from the database
-     *
-     * @param int $per_page
-     * @param int $page_number
-     *
-     * @return mixed
-     */
-    public static function get_posts( $per_page = 5, $page_number = 1 ) {
-
-        global $wpdb;
-
-        $sql = "SELECT * FROM {$wpdb->prefix}akolade_aggregator";
-
-        if ( ! empty( $_REQUEST['orderby'] ) ) {
-            $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
-            $sql .= ! empty( $_REQUEST['order'] ) ? ' ' . esc_sql( $_REQUEST['order'] ) : ' ASC';
-        }
-
-        $sql .= " LIMIT $per_page";
-        $sql .= ' OFFSET ' . ( $page_number - 1 ) * $per_page;
-
-
-        $result = $wpdb->get_results( $sql, 'ARRAY_A' );
-
-        return $result;
+        $this->db = new Akolade_Aggregator_DB();
+        $this->importer = new Akolade_Aggregator_Importer();
     }
 
 
@@ -93,21 +68,21 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             case 'post_title':
                 return $item[ $column_name ];
                 break;
-            case 'origin':
+            case 'channel':
                 return $item[ $column_name ];
                 break;
             case 'post_type':
                 return $item[ $column_name ];
                 break;
             case 'status':
-                $status_value = '';
+                $status_value = 'completed';
 
                 if ((int)$item[ $column_name ] === 1) {
-                    $status_value = 'New';
+                    $status_value = 'Pending (New)';
                 }
 
                 if ((int) $item[ $column_name ] === 2) {
-                    $status_value = 'Update';
+                    $status_value = 'Pending';
                 }
 
                 return $status_value;
@@ -166,7 +141,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $columns = [
             'cb'      => '<input type="checkbox" />',
             'post_title'    => __( 'Title', 'akolade-aggregator' ),
-            'origin'    => __( 'Origin', 'akolade-aggregator' ),
+            'channel'    => __( 'Channel', 'akolade-aggregator' ),
             'post_type' => __( 'Post Type', 'akolade-aggregator' ),
             'status'    => __( 'Status', 'akolade-aggregator' ),
             'created_at'    => __( 'Date', 'akolade-aggregator' ),
@@ -184,7 +159,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
     public function get_sortable_columns() {
         $sortable_columns = array(
             'post_title' => array( 'post_title', true ),
-            'origin' => array( 'origin', false ),
+            'channel' => array( 'channel', false ),
             'post_type' => array( 'post_type', false )
         );
 
@@ -222,53 +197,18 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $total_items  = self::record_count();
 
         $this->set_pagination_args( [
-            'total_items' => $total_items, //WE have to calculate the total number of items
-            'per_page'    => $per_page //WE have to determine how many items to show on a page
+            'total_items' => $total_items,
+            'per_page'    => $per_page
         ] );
 
-        $this->items = self::get_posts( $per_page, $current_page );
+        $this->items = $this->db->get_ak_posts( $per_page, $current_page );
     }
 
     public function process_bulk_action() {
 
-        //Detect when a bulk action is being triggered...
-        if ( 'delete' === $this->current_action() ) {
-
-            // In our file that handles the request, verify the nonce.
-            $nonce = esc_attr( $_REQUEST['_wpnonce'] );
-
-            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
-                die( 'Go get a life script kiddies' );
-            }
-            else {
-                self::delete_post( absint( $_GET['post'] ) );
-
-                // esc_url_raw() is used to prevent converting ampersand in url to "#038;"
-                // add_query_arg() return the current url
-                wp_redirect( esc_url_raw(add_query_arg()) );
-                exit;
-            }
-
-        }
-
-        // If the delete bulk action is triggered
-        if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-delete' )
-            || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-delete' )
-        ) {
-
-            $delete_ids = esc_sql( $_POST['bulk-delete'] );
-
-            // loop over the array of record IDs and delete them
-            foreach ( $delete_ids as $id ) {
-                self::delete_post( $id );
-
-            }
-
-            // esc_url_raw() is used to prevent converting ampersand in url to "#038;"
-            // add_query_arg() return the current url
-            wp_redirect( esc_url_raw(add_query_arg()) );
-            exit;
-        }
+        $this->process_delete_action();
+        $this->process_save_as_draft_action();
+        $this->process_publish_action();
     }
 
     protected function get_views() {
@@ -319,31 +259,122 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
      *                      This is designated as optional for backward compatibility.
      */
     protected function post_filter( $which = '' ) {
-        if ( is_null( $this->_actions ) ) {
-            $this->_actions = $this->get_post_filter_actions();
-            $two = '';
-        } else {
-            $two = '2';
+        $post_types = $this->db->get_ak_post_types();
+        $channels = $this->db->get_ak_channels();
+        ?>
+        <label for="channel-selector" class="screen-reader-text">Select Channel</label>
+        <select name="channel" id="channel-selector">
+            <option value="">All Channels</option>
+            <?php foreach ($channels as $channel): ?>
+                <option value="<?php echo $channel; ?>"><?php echo $channel; ?></option>
+            <?php endforeach; ?>
+        </select>
+        <label for="post-type-selector" class="screen-reader-text">Select Channel</label>
+        <select name="post-type" id="post-type-selector">
+            <option value="-1" selected>All Post Types</option>
+            <?php foreach ($post_types as $post_type): ?>
+                <option value="<?php echo $post_type; ?>"><?php echo $post_type; ?></option>
+            <?php endforeach; ?>
+        </select>
+        <input type="submit" class="button" value="Filter">
+        <?php
+    }
+
+    private function process_delete_action()
+    {
+        //Detect when a bulk action is being triggered...
+        if ( 'delete' === $this->current_action() ) {
+
+            // In our file that handles the request, verify the nonce.
+            $nonce = esc_attr( $_REQUEST['_wpnonce'] );
+
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
+                die( 'Go get a life script kiddies' );
+            }
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
+                die( 'Go get a life script kiddies' );
+            }
+            else {
+                self::delete_post( absint( $_GET['post'] ) );
+            }
+
         }
 
-        if ( empty( $this->_actions ) ) {
-            return;
+        // If the delete bulk action is triggered
+        if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-delete' )
+            || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-delete' )
+        ) {
+
+            $delete_ids = esc_sql( $_POST['bulk-delete'] );
+
+            // loop over the array of record IDs and delete them
+            foreach ( $delete_ids as $id ) {
+                self::delete_post( $id );
+
+            }
+        }
+    }
+
+    private function process_save_as_draft_action()
+    {
+        //Detect when a bulk action is being triggered...
+        if ( 'save-as-draft' === $this->current_action() ) {
+
+            // In our file that handles the request, verify the nonce.
+            $nonce = esc_attr( $_REQUEST['_wpnonce'] );
+
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
+                die( 'Go get a life script kiddies' );
+            }
+            else {
+                $this->importer->import( absint( $_GET['post'] ) , 'draft');
+            }
+
         }
 
-        echo '<label for="bulk-action-selector-' . esc_attr( $which ) . '" class="screen-reader-text">' . __( 'Select bulk action' ) . '</label>';
-        echo '<select name="action' . $two . '" id="bulk-action-selector-' . esc_attr( $which ) . "\">\n";
-        echo '<option value="-1">' . __( 'All Channels' ) . "</option>\n";
+        // If the save as draft bulk action is triggered
+        if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-save-as-draft' )
+            || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-save-as-draft' )
+        ) {
 
-        foreach ( $this->_actions as $name => $title ) {
-            $class = 'edit' === $name ? ' class="hide-if-no-js"' : '';
+            $ak_post_ids = esc_sql( $_POST['bulk-save-as-draft'] );
 
-            echo "\t" . '<option value="' . $name . '"' . $class . '>' . $title . "</option>\n";
+            // loop over the array of record IDs and delete them
+            foreach ( $ak_post_ids as $id ) {
+                $this->importer->import( absint( $id ) , 'draft');
+            }
+        }
+    }
+
+    private function process_publish_action()
+    {
+        //Detect when a bulk action is being triggered...
+        if ( 'publish' === $this->current_action() ) {
+
+            // In our file that handles the request, verify the nonce.
+            $nonce = esc_attr( $_REQUEST['_wpnonce'] );
+
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
+                die( 'Go get a life script kiddies' );
+            }
+            else {
+                $this->importer->import( absint( $_GET['post'] ) , 'publish');
+            }
+
         }
 
-        echo "</select>\n";
+        // If the publish bulk action is triggered
+        if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-publish' )
+            || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-publish' )
+        ) {
 
-        submit_button( __( 'Filter' ), 'action', '', false, array( 'id' => "doaction$two" ) );
-        echo "\n";
+            $ak_post_ids = esc_sql( $_POST['bulk-publish'] );
+
+            // loop over the array of record IDs and delete them
+            foreach ( $ak_post_ids as $id ) {
+                $this->importer->import( absint( $id ) , 'publish');
+            }
+        }
     }
 
 }

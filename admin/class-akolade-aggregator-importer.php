@@ -12,13 +12,6 @@
  */
 class Akolade_Aggregator_Importer {
 
-    /**
-     * Options
-     *
-     * @var mixed|void $options Stores options for plugin setting
-     */
-    private $options;
-
     private $post_fields = [
         'post_content' => '',
         'post_title' => '',
@@ -27,128 +20,91 @@ class Akolade_Aggregator_Importer {
         'post_name' => ''
     ];
 
+    private $db;
+
     public function __construct()
     {
-        $this->options = get_option( 'akolade-aggregator' );
-    }
-
-    public function getStatusValue($status)
-    {
-        // Check activator file for table schema for more information
-        // up-to-date (0), new (1), update (2)
-        $status_value = 0;
-
-        switch ($status) {
-            case 'up-to-date':
-                $status_value = 0;
-                break;
-            case 'new':
-                $status_value = 1;
-                break;
-            case 'update':
-                $status_value = 2;
-                break;
-            case 'cancelled':
-                $status_value = 2;
-                break;
-            default;
-        }
-
-        return $status_value;
-    }
-
-    public function getOption($option)
-    {
-        return isset($this->options[$option]) ? $this->options[$option] : null;
+        $this->db = new Akolade_Aggregator_DB();
     }
 
     public function handle()
     {
-        global $wpdb;
-
         $data = $_POST['data'];
         $post = $data['post'];
         $post_name = $post['post_name'];
         $post_type = $post['post_type'];
-        $origin = $data['post_origin'];
+        $channel = $data['post_channel'];
 
         $row = [
             'post_title' => $post['post_title'],
             'post_name' => $post_name,
-            'origin' => $origin,
+            'channel' => $channel,
             'post_type' => $post_type,
             'data' => json_encode($data),
-            'status' => $this->getStatusValue('new'),
+            'status' => $this->db->get_status_value('new'),
         ];
 
-        $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM `{$wpdb->prefix}akolade_aggregator` WHERE `post_name` = %s AND `post_type` = %s",
-            $post_name,
-            $post_type
-        ));
+        $post_id = $this->db->count_ak_posts($post_name, $post_type);
 
         if ($post_id) {
-            $row['status'] = $this->getStatusValue('update');
-            $result = $wpdb->update(
-                $wpdb->prefix . 'akolade_aggregator',
-                $row,
-                [
-                    'post_name' => $post_name,
-                    'post_type' => $post_type
-                ]
-            );
+            $row['status'] = $this->db->get_status_value('update');
+            $result = $this->db->update_ak_post($row, $post_name, $post_type);
             $last_id = $post_id;
         } else {
-            $result = $wpdb->insert(
-                $wpdb->prefix . 'akolade_aggregator',
-                $row
-            );
-
-            $last_id = $wpdb->insert_id;
+            $result = $this->db->insert_ak_post($row);
+            $last_id = $this->db->get_last_insert_id();
         }
 
-        $this->import($last_id);
+        if ($this->db->get_option('auto_publish')) {
+            $this->import($last_id);
+        }
 
         return $result;
     }
 
-    public function import($id)
+    public function import($id, $status = 'draft')
     {
-        global $wpdb;
-        $import_data = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM `{$wpdb->prefix}akolade_aggregator` WHERE `id` = %s",
-            $id
-        ));
+        $import_data = $this->db->get_ak_post($id);
 
         if (! $import_data) {
             return;
         }
 
-        $this->importPost($import_data);
+        $this->importPost($import_data, $status);
 //        $this->importPostMeta();
 //        $this->importPostAuthor();
 //        $this->importPostMedia();
 //        $this->importPostTerms();
     }
 
-    private function importPost($import_data)
+    private function importPost($import_data, $status = 'draft')
     {
         $post_id = $import_data->post_id;
         $post_name = $import_data->post_name;
-        $post_origin = $import_data->origin;
+        $post_channel = $import_data->channel;
         $post_type = $import_data->post_type;
         $data = json_decode($import_data->data);
         $post = (array)$data->post;
-        $post_origin = $data->post_origin;
+        $post_channel = $data->post_channel;
         $post_meta = $data->post_meta;
         $post_author = $data->post_author;
         $post_terms = $data->post_terms;
 
-//        $post['post_status'] = $this->getOption('auto_publish') ? 'published' : 'draft';
-        $post['post_status'] = 'published';
+        $post['post_status'] = $status;
         $fillable_post_data = array_intersect_key($post, $this->post_fields);
 
-        wp_insert_post($fillable_post_data);
+        $post_id = $this->db->post_exists($post_name, $post_type);
+        if ($post_id) {
+            $fillable_post_data['ID'] = $post_id;
+            wp_update_post($fillable_post_data);
+        } else {
+            $post_id = wp_insert_post($fillable_post_data);
+        }
+
+        $this->db->update_ak_post([
+            'post_id' => $post_id,
+            'status' => $this->db->get_status_value('up-to-date')
+        ], $post_name, $post_type);
     }
 
     private function importPostMeta()
