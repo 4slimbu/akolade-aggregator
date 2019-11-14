@@ -50,7 +50,7 @@ class Akolade_Aggregator_Exporter {
         // data to post
         $data = [];
         $data['post'] = $post;
-        $data['post_channel'] = $this->get_option('channel');
+        $data['post_canonical_url'] = get_permalink($post->ID);
         $data['post_meta'] = get_post_meta($post->ID);
 
         // Author
@@ -72,7 +72,7 @@ class Akolade_Aggregator_Exporter {
         // Images
         $attachments= get_attached_media( 'image', $post->ID );
         foreach($attachments as $att_id => $attachment) {
-            $data['post_images'] = wp_get_attachment_url($attachment->ID);
+            $data['post_images'][] = $attachment;
         }
 
         // Post to network sites
@@ -86,13 +86,14 @@ class Akolade_Aggregator_Exporter {
             foreach ($network_sites as $network) {
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post( $url, array(
-                    'method' => 'POST',
-                    'timeout' => 5,
-                    'redirection' => 5,
-                    'blocking' => false,
+//                    'method' => 'POST',
+//                    'timeout' => 5,
+//                    'redirection' => 5,
+//                    'blocking' => false,
                     'body'    => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,
+                        'access_token' => $network['access_token']
                     ],
                     'headers' => array(
                         'Content-type' => 'application/x-www-form-urlencoded'
@@ -102,9 +103,9 @@ class Akolade_Aggregator_Exporter {
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
                 } else {
-//                    echo '<pre>';
-//                    var_dump( wp_remote_retrieve_body($response));
-//                    die();
+                    echo '<pre>';
+                    var_dump( wp_remote_retrieve_body($response));
+                    die();
                 }
             }
         }

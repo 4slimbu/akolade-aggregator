@@ -169,6 +169,8 @@ class Akolade_Aggregator_DB {
         if ( ! empty( $_REQUEST['orderby'] ) ) {
             $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
             $sql .= ! empty( $_REQUEST['order'] ) ? ' ' . esc_sql( $_REQUEST['order'] ) : ' ASC';
+        } else {
+            $sql .= ' ORDER BY id DESC ';
         }
 
         $sql .= " LIMIT $per_page";

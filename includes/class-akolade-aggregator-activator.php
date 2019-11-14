@@ -45,6 +45,7 @@ class Akolade_Aggregator_Activator {
             $sql = "CREATE TABLE `". $wp_track_table . "` ( ";
             $sql .= "  `id`  int(11)   NOT NULL auto_increment, ";
             $sql .= "  `post_id`  varchar(128)   NULL, ";
+            $sql .= "  `post_canonical_url`  varchar(255)  NULL, ";
             $sql .= "  `post_title`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_name`  varchar(128)   NOT NULL, ";
             $sql .= "  `channel`  varchar(128)   NOT NULL, ";
