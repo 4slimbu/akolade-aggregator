@@ -19,7 +19,7 @@ class Akolade_Aggregator_Exporter {
      */
     private $options;
 
-    private $exportable = ['post', 'jobs', 'retail_events'];
+    private $exportable = ['post', 'jobs', 'retail_events', 'special-content'];
 
     public function __construct()
     {
@@ -48,10 +48,67 @@ class Akolade_Aggregator_Exporter {
         }
 
         // data to post
+        $data = $this->prepare_data($post);
+
+        // Post to network sites
+        $network_sites = $this->get_option('network_sites');
+        $this->postToNetworkSites($network_sites, $data);
+    }
+
+    public function postToNetworkSites($network_sites, $data)
+    {
+        if ($network_sites) {
+            foreach ($network_sites as $network) {
+                $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
+                $response = wp_remote_post( $url, array(
+                    'method' => 'POST',
+                    'timeout' => 15,
+                    'redirection' => 5,
+//                    'blocking' => false,
+                    'body'    => [
+                        'action' => 'akolade_aggregator_import',
+                        'data' => $data,
+                        'access_token' => $network['access_token']
+                    ],
+                    'headers' => array(
+                        'Content-type' => 'application/x-www-form-urlencoded'
+                    ),
+                ) );
+
+                if ( is_wp_error( $response ) ) {
+                    error_log($response->get_error_message());
+                } else {
+                    echo '<pre>';
+                    var_dump( wp_remote_retrieve_body($response));
+                    die();
+                }
+            }
+        }
+    }
+
+    private function parse_domain_from_url($site_url)
+    {
+        $domain_name = '';
+        $pieces = parse_url($site_url);
+        $domain = isset($pieces['host']) ? $pieces['host'] : '';
+
+        if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
+            $domain_name = strstr( $regs['domain'], '.', true );
+        }
+
+        return $domain_name;
+    }
+
+    private function prepare_data($post)
+    {
         $data = [];
+        $data['channel'] = $this->parse_domain_from_url(site_url());
+
+        // post
+        $post->post_content = $this->replace_embeded_images_with_placeholder($post->post_content);
         $data['post'] = $post;
         $data['post_canonical_url'] = get_permalink($post->ID);
-        $data['post_meta'] = get_post_meta($post->ID);
+        $data['post_meta'] = $this->replace_meta_field_image_id_with_src(get_post_meta($post->ID));
 
         // Author
         $data['post_author'] = get_userdata($post->post_author);
@@ -75,39 +132,61 @@ class Akolade_Aggregator_Exporter {
             $data['post_images'][] = $attachment;
         }
 
-        // Post to network sites
-        $network_sites = $this->get_option('network_sites');
-        $this->postToNetworkSites($network_sites, $data);
+        return $data;
     }
 
-    public function postToNetworkSites($network_sites, $data)
+    private function replace_embeded_images_with_placeholder($content)
     {
-        if ($network_sites) {
-            foreach ($network_sites as $network) {
-                $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
-                $response = wp_remote_post( $url, array(
-//                    'method' => 'POST',
-//                    'timeout' => 5,
-//                    'redirection' => 5,
-//                    'blocking' => false,
-                    'body'    => [
-                        'action' => 'akolade_aggregator_import',
-                        'data' => $data,
-                        'access_token' => $network['access_token']
-                    ],
-                    'headers' => array(
-                        'Content-type' => 'application/x-www-form-urlencoded'
-                    ),
-                ) );
+        // replace src="image_url" with placeholder
+        $content = preg_replace_callback(
+            '/src\s?=\s?"(.*?)"/',
+            function ($matches) {
+                // Create unique placeholder for matched image urls
+                $placeholder = '%akagsrcstart%' . $matches[1] . '%akagsrcend%';
 
-                if ( is_wp_error( $response ) ) {
-                    error_log($response->get_error_message());
-                } else {
-                    echo '<pre>';
-                    var_dump( wp_remote_retrieve_body($response));
-                    die();
+                return 'src="' . $placeholder . '"';
+            },
+            $content
+        );
+
+        // replace image="2983" images="2323,3232" ids="2323,2342" with placeholder
+        $content = preg_replace_callback(
+            '/(ids|image|images)\s?=\s?"([0-9,]*?)"/',
+            function ($matches) {
+                $image_ids = explode(',', $matches[2]);
+                $sources = [];
+
+                foreach ($image_ids as $image_id) {
+                    // Get image source
+                    $img_src = wp_get_attachment_url($image_id);
+
+                    if ($img_src) {
+                        $sources[] = '%akagidstart%' . $img_src . '%akagidend%';
+                    }
                 }
+
+                // Create unique placeholder for matched image urls
+                $placeholder = implode(",", $sources);
+
+                return $matches[1] . '="' . $placeholder . '"';
+            },
+            $content
+        );
+
+        return $content;
+    }
+
+    private function replace_meta_field_image_id_with_src($post_meta)
+    {
+        $keys_with_image_id_value = [];
+        foreach ($post_meta as $key => $item) {
+            if (in_array($key, $keys_with_image_id_value)) {
+                $img_src = wp_get_attachment_url($item[0]);
+                $post_meta[$key][0] = $img_src;
             }
         }
+
+        return $post_meta;
     }
+
 }

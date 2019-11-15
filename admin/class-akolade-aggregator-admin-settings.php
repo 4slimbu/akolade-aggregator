@@ -38,14 +38,6 @@ class Akolade_Aggregator_Admin_Settings
         );
 
         add_settings_field(
-            'channel',
-            'Channel',
-            array( $this, 'channel_callback' ),
-            'akolade-aggregator-settings',
-            'main-section'
-        );
-
-        add_settings_field(
             'access_token',
             'Access Token',
             array( $this, 'access_token_callback' ),
@@ -82,9 +74,6 @@ class Akolade_Aggregator_Admin_Settings
     {
         $new_input = array();
 
-        if( isset( $input['channel'] ) )
-            $new_input['channel'] = sanitize_text_field( $input['channel'] );
-
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
 
@@ -96,18 +85,6 @@ class Akolade_Aggregator_Admin_Settings
 
         return $new_input;
     }
-
-    /**
-     * Get the channel
-     */
-    public function channel_callback()
-    {
-        printf(
-            '<input type="text" id="channel" class="form-input" name="akolade-aggregator[channel]" value="%s"  /><br /><small>Channel slug for this site.</small>',
-            $this->getOption('channel') ? esc_attr( $this->getOption('channel')) : ''
-        );
-    }
-
 
     /**
      * Get the settings option array and print one of its values

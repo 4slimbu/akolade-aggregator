@@ -26,6 +26,18 @@ class Akolade_Aggregator_Importer {
         'first_name', 'last_name', 'description', 'role'
     ];
 
+    /**
+     * List of field type for special meta field only.
+     * Fields not specified can be assumed as string.
+     *
+     * @var array
+     */
+    private $meta_field_type = [
+        '_thumbnail_id' => 'img_id',
+//        '_thumbnail_id' => 'img_src',
+//        '_thumbnail_id' => 'serialized_img_object',
+    ];
+
     private $db;
 
     public function __construct()
@@ -33,6 +45,9 @@ class Akolade_Aggregator_Importer {
         $this->db = new Akolade_Aggregator_DB();
     }
 
+    /**
+     * @return mixed
+     */
     public function handle()
     {
         // TODO: this way of verifying access_token won't work for sites without SSL. So use signature or encryption for verification
@@ -42,13 +57,15 @@ class Akolade_Aggregator_Importer {
         }
 
         $data = $_POST['data'];
+        $channel = $data['channel'];
         $post = $data['post'];
         $post_name = $post['post_name'];
         $post_type = $post['post_type'];
-        $channel = $data['post_channel'];
+        $post_canonical_url = $data['post_canonical_url'];
 
         $row = [
             'post_title' => $post['post_title'],
+            'post_canonical_url' => $post_canonical_url,
             'post_name' => $post_name,
             'channel' => $channel,
             'post_type' => $post_type,
@@ -74,6 +91,10 @@ class Akolade_Aggregator_Importer {
         return $result;
     }
 
+    /**
+     * @param $id
+     * @param string $status
+     */
     public function import($id, $status = 'draft')
     {
         $import_data = $this->db->get_ak_post($id);
@@ -83,21 +104,31 @@ class Akolade_Aggregator_Importer {
         }
 
         $data = json_decode($import_data->data);
-        $post_meta = $data->post_meta;
-        $post_author = $data->post_author;
-        $post_terms = $data->post_terms;
-        $post_images = $data->post_images;
+        $post = $data->post;
+        $post_meta = $data->post_meta ?? null;
+        $post_author = $data->post_author ?? null;
+        $post_terms = $data->post_terms ?? null;
+        $post_images = $data->post_images ?? null;
 
-        $post_id = $this->import_post($import_data, $status, $this->import_author($post_author->data));
+        $post_id = $this->import_post($post, $status, $this->import_author($post_author->data));
         // Set channel
-        update_post_meta($post_id, 'channel', $this->get_);
         $this->assign_post_meta($post_id, $post_meta);
         $this->assign_post_terms($post_id, $this->import_terms($post_terms));
         $this->import_and_assign_images_to_post($post_id, $post_images, $post_meta);
     }
 
+    /**
+     * @param $post
+     * @param string $status
+     * @param string $author_id
+     * @return bool|int|WP_Error
+     */
     private function import_post($post, $status = 'draft', $author_id = '')
     {
+        if (! $post) {
+            return false;
+        }
+
         $post_name = $post->post_name;
         $post_type = $post->post_type;
         $fillable_post_data = $this->filter_fields((array)$post, $this->post_fields);
@@ -114,6 +145,9 @@ class Akolade_Aggregator_Importer {
             $post_id = wp_insert_post($fillable_post_data);
         }
 
+        $fillable_post_data['post_content'] = $this->replace_embeded_image_placeholder($fillable_post_data['post_content']);
+        wp_update_post($fillable_post_data);
+
         $this->db->update_ak_post([
             'post_id' => $post_id,
             'status' => $this->db->get_status_value('up-to-date')
@@ -122,8 +156,17 @@ class Akolade_Aggregator_Importer {
         return $post_id;
     }
 
+    /**
+     * @param $post_id
+     * @param $post_meta
+     * @return bool
+     */
     private function assign_post_meta($post_id, $post_meta)
     {
+        if (! $post_meta) {
+            return false;
+        }
+
         $post_meta = (array) $post_meta;
 
         if ($post_meta) {
@@ -141,10 +184,15 @@ class Akolade_Aggregator_Importer {
     /**
      * Import author if doesn't exist
      * @param $post_author
-     * @return int Author Id
+     * @return bool|false|int|WP_Error
      */
     private function import_author($post_author)
     {
+        // If no post author, return false
+        if (! $post_author) {
+            return false;
+        }
+
         // check if exist
         if ($id = email_exists($post_author->user_email)) {
             return $id;
@@ -158,8 +206,16 @@ class Akolade_Aggregator_Importer {
         return $id;
     }
 
+    /**
+     * @param $terms
+     * @return array|bool
+     */
     private function import_terms($terms)
     {
+        if (! $terms) {
+            return false;
+        }
+
         $response = [];
 
         //TODO: Make more flexible to address parent term issues
@@ -202,22 +258,31 @@ class Akolade_Aggregator_Importer {
         return $response;
     }
 
+    /**
+     * @param $post_id
+     * @param $post_images
+     * @param null $post_meta
+     * @return bool
+     */
     private function import_and_assign_images_to_post($post_id, $post_images, $post_meta = null)
     {
+        if (! $post_images || ! $post_meta) {
+            return false;
+        }
+
         require_once(ABSPATH . 'wp-admin/includes/media.php');
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/image.php');
 
         $featured_image_id = null;
-        if ($post_meta) {
+        if (isset($post_meta->_thumbnail_id)) {
             $featured_image_id = $post_meta->_thumbnail_id[0];
         }
 
         if (is_array($post_images) && !empty($post_images)) {
             foreach ($post_images as $image) {
                 $image_url = $image->guid;
-//                $image_url = "http://048d46e7.ngrok.io/wp-content/uploads/2019/06/blake-wisz-1554907-unsplash.jpg";
-                $saved_image_id = media_sideload_image($image_url, $post_id, '', 'id');
+                $saved_image_id = $this->save_image_to_post($image_url, $post_id);
 
                 // If image is featured image
                 if ($image->ID === $featured_image_id && is_int($saved_image_id)) {
@@ -227,8 +292,17 @@ class Akolade_Aggregator_Importer {
         }
     }
 
+    /**
+     * @param $post_id
+     * @param $terms
+     * @return bool
+     */
     private function assign_post_terms($post_id, $terms)
     {
+        if (! $terms) {
+            return false;
+        }
+
         if ($terms) {
             foreach ($terms as $term) {
                 wp_set_object_terms($post_id, $term['id'], $term['taxonomy']);
@@ -262,5 +336,73 @@ class Akolade_Aggregator_Importer {
         $current_site_access_token = $this->db->get_option('access_token');
 
         return $access_token === $current_site_access_token;
+    }
+
+    /**
+     * Save only new images and cache it
+     * return cached image id if present, else save image and return its id
+     *
+     * @param $image_url
+     * @param $post_id
+     * @return bool|string|WP_Error
+     */
+    private function save_image_to_post($image_url, $post_id = '')
+    {
+        // Check if it exists in the imported images list
+        $saved_image_id = $this->db->ak_get_imported_image($image_url);
+
+        // If not import and cache it in the imported images list
+        if (! $saved_image_id) {
+//                $image_url = "http://048d46e7.ngrok.io/wp-content/uploads/2019/06/blake-wisz-1554907-unsplash.jpg";
+            $saved_image_id = media_sideload_image($image_url, $post_id, '', 'id');
+            if (is_int($saved_image_id)) {
+                $this->db->ak_remember_imported_image($image_url, $saved_image_id);
+            }
+        }
+
+        return $saved_image_id;
+    }
+
+    private function replace_embeded_image_placeholder($content)
+    {
+        $content = preg_replace_callback(
+            '/%akagsrcstart%(.*?)%akagsrcend%/',
+            function ($matches) {
+                $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
+
+                if (! $img_src) {
+                    $saved_image_id = media_sideload_image($matches[1], '', '', 'id');
+                    if (is_int($saved_image_id)) {
+                        $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
+                    }
+
+                    $img_src = wp_get_attachment_url($saved_image_id);
+                }
+
+                return $img_src;
+            },
+            $content
+        );
+
+        $content = preg_replace_callback(
+            '/%akagidstart%(.*?)%akagidend%/',
+            function ($matches) {
+                $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
+
+                if (! $img_id) {
+                    $saved_image_id = media_sideload_image($matches[1], '', '', 'id');
+                    if (is_int($saved_image_id)) {
+                        $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
+                    }
+
+                    $img_id = $saved_image_id;
+                }
+
+                return $img_id;
+            },
+            $content
+        );
+
+        return $content;
     }
 }

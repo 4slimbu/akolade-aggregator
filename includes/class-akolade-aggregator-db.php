@@ -19,6 +19,7 @@ class Akolade_Aggregator_DB {
      */
     public $options;
     public $akolade_aggregator_table;
+    public $akolade_aggregator_imported_images_table;
     public $wpdb;
 
     public function __construct()
@@ -26,6 +27,7 @@ class Akolade_Aggregator_DB {
         global $wpdb;
         $this->wpdb = $wpdb;
         $this->akolade_aggregator_table = $wpdb->prefix . 'akolade_aggregator';
+        $this->akolade_aggregator_imported_images_table = $wpdb->prefix . 'akolade_aggregator_imported_images';
         $this->options = get_option( 'akolade-aggregator' );
     }
 
@@ -188,5 +190,49 @@ class Akolade_Aggregator_DB {
     function post_exists( $post_name, $post_type ) {
         $loop_posts = new WP_Query( array( 'post_type' => $post_type, 'post_status' => 'any', 'name' => $post_name, 'posts_per_page' => 1, 'fields' => 'ids' ) );
         return ( $loop_posts->have_posts() ? $loop_posts->posts[0] : false );
+    }
+
+    /**
+     * Check if img exists by src.
+     * @param $src
+     * @param string $return 'id', 'src'
+     * @return bool|false|string
+     */
+    function ak_get_imported_image( $src , $return = 'id') {
+        $row =  $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT * FROM `{$this->akolade_aggregator_imported_images}` WHERE `img_url` = %s",
+            $src
+        ));
+
+        if ($return === 'id') {
+            return $row->mapped_img_id;
+        }
+
+        if ($return === 'src') {
+            return wp_get_attachment_url($row->mapped_img_id);
+        }
+
+        return false;
+    }
+
+    /**
+     * Create a mapping of imported external image source with the id that is obtained after importing it.
+     * This will help to prevent duplicate import
+     *
+     * @param $src string external image source
+     * @param $mapped_id int id which is obtained after importing image
+     * @return false|int
+     */
+    function ak_remember_imported_image($src, $mapped_id)
+    {
+        $row = [
+            'img_url' => $src,
+            'mapped_img_id' => $mapped_id
+        ];
+
+        return $this->wpdb->insert(
+            $this->akolade_aggregator_imported_images_table,
+            $row
+        );
     }
 }

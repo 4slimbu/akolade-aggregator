@@ -30,10 +30,11 @@ class Akolade_Aggregator_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-        self::create_plugin_database_table();
+        self::create_posts_table();
+        self::create_images_table();
 	}
 
-    public static function create_plugin_database_table()
+    public static function create_posts_table()
     {
         global $table_prefix, $wpdb;
 
@@ -52,6 +53,29 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
             $sql .= "  `status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2)
+            $sql .= "  `created_at`  timestamp   NOT NULL, ";
+            $sql .= "  PRIMARY KEY (`id`) ";
+            $sql .= "); ";
+
+            require_once( ABSPATH . '/wp-admin/includes/upgrade.php' );
+            dbDelta($sql);
+        }
+
+    }
+
+    public static function create_images_table()
+    {
+        global $table_prefix, $wpdb;
+
+        $tblname = 'akolade_aggregator_imported_images';
+        $wp_track_table = $table_prefix . $tblname;
+
+        #Check to see if the table exists already, if not, then create it
+        if($wpdb->get_var( "show tables like '$wp_track_table'" ) != $wp_track_table) {
+            $sql = "CREATE TABLE `". $wp_track_table . "` ( ";
+            $sql .= "  `id`  int(11)   NOT NULL auto_increment, ";
+            $sql .= "  `img_url`  varchar(255)  NOT NULL, ";
+            $sql .= "  `mapped_img_id`  int(11) NOT NULL, ";
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";
