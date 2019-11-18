@@ -57,17 +57,15 @@ class Akolade_Aggregator_Importer {
         }
 
         $data = $_POST['data'];
-        $channel = $data['channel'];
         $post = $data['post'];
         $post_name = $post['post_name'];
         $post_type = $post['post_type'];
-        $post_canonical_url = $data['post_canonical_url'];
 
         $row = [
             'post_title' => $post['post_title'],
-            'post_canonical_url' => $post_canonical_url,
+            'post_canonical_url' => $post['canonical_url'],
             'post_name' => $post_name,
-            'channel' => $channel,
+            'channel' => $post['channel'],
             'post_type' => $post_type,
             'data' => json_encode($data),
             'status' => $this->db->get_status_value('new'),
@@ -84,7 +82,13 @@ class Akolade_Aggregator_Importer {
             $last_id = $this->db->get_last_insert_id();
         }
 
-        if ($this->db->get_option('auto_publish')) {
+        // if auto_publish is set to "Import and save as draft", create draft of imported post
+        if ($this->db->get_option('auto_publish') === '1') {
+            $this->import($last_id, 'draft');
+        }
+
+        // if auto_publish is set to "Import and Publish" Publish imported post
+        if ($this->db->get_option('auto_publish') === '2') {
             $this->import($last_id, 'publish');
         }
 
@@ -128,17 +132,17 @@ class Akolade_Aggregator_Importer {
         if (! $post) {
             return false;
         }
-
         $post_name = $post->post_name;
         $post_type = $post->post_type;
         $fillable_post_data = $this->filter_fields((array)$post, $this->post_fields);
 
         $post_id = $this->db->post_exists($post_name, $post_type);
+        $fillable_post_data['post_status'] = $status;
+
         if ($post_id) {
             $fillable_post_data['ID'] = $post_id;
             wp_update_post($fillable_post_data);
         } else {
-            $fillable_post_data['post_status'] = $status;
             if ($author_id) {
                 $fillable_post_data['author'] = $author_id;
             }
@@ -150,7 +154,6 @@ class Akolade_Aggregator_Importer {
 
         $this->db->update_ak_post([
             'post_id' => $post_id,
-            'status' => $this->db->get_status_value('up-to-date')
         ], $post_name, $post_type);
 
         return $post_id;
@@ -371,12 +374,14 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image($matches[1], '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '04b54580.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
+                        $img_src = wp_get_attachment_url($saved_image_id);
+                    } else {
+                        // return un-parsed string
+                        $img_src = $matches[0];
                     }
-
-                    $img_src = wp_get_attachment_url($saved_image_id);
                 }
 
                 return $img_src;
@@ -388,14 +393,15 @@ class Akolade_Aggregator_Importer {
             '/%akagidstart%(.*?)%akagidend%/',
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
-
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image($matches[1], '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '04b54580.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
+                        $img_id = $saved_image_id;
+                    } else {
+                        // return un-parsed string
+                        $img_id = $matches[0];
                     }
-
-                    $img_id = $saved_image_id;
                 }
 
                 return $img_id;

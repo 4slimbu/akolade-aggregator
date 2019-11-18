@@ -38,7 +38,7 @@ class Akolade_Aggregator_Activator {
     {
         global $table_prefix, $wpdb;
 
-        $tblname = 'akolade_aggregator';
+        $tblname = 'akolade_aggregator_posts';
         $wp_track_table = $table_prefix . $tblname;
 
         #Check to see if the table exists already, if not, then create it
@@ -52,7 +52,7 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `channel`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
-            $sql .= "  `status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2)
+            $sql .= "  `status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2), cancelled (3)
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";
@@ -67,15 +67,15 @@ class Akolade_Aggregator_Activator {
     {
         global $table_prefix, $wpdb;
 
-        $tblname = 'akolade_aggregator_imported_images';
+        $tblname = 'akolade_aggregator_cache';
         $wp_track_table = $table_prefix . $tblname;
 
         #Check to see if the table exists already, if not, then create it
         if($wpdb->get_var( "show tables like '$wp_track_table'" ) != $wp_track_table) {
             $sql = "CREATE TABLE `". $wp_track_table . "` ( ";
             $sql .= "  `id`  int(11)   NOT NULL auto_increment, ";
-            $sql .= "  `img_url`  varchar(255)  NOT NULL, ";
-            $sql .= "  `mapped_img_id`  int(11) NOT NULL, ";
+            $sql .= "  `key`  varchar(255)  NOT NULL, ";
+            $sql .= "  `value`  int(11) NOT NULL, ";
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";

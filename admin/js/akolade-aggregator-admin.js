@@ -79,6 +79,15 @@
             return result;
         }
 
+        /**
+		 * Confirm delete action
+         */
+        $('.delete-action').click( function( event ) {
+            if( ! confirm( 'Are you sure you want to delete the item?' ) ) {
+                event.preventDefault();
+            }
+        });
+
     });
 
 })( jQuery );

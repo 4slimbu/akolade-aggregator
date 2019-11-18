@@ -19,36 +19,6 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
     }
 
 
-    /**
-     * Delete a post record.
-     *
-     * @param int $id post ID
-     */
-    public static function delete_post( $id ) {
-        global $wpdb;
-
-        $wpdb->delete(
-            "{$wpdb->prefix}akolade_aggregator",
-            [ 'id' => $id ],
-            [ '%d' ]
-        );
-    }
-
-
-    /**
-     * Returns the count of records in the database.
-     *
-     * @return null|string
-     */
-    public static function record_count() {
-        global $wpdb;
-
-        $sql = "SELECT COUNT(*) FROM {$wpdb->prefix}akolade_aggregator";
-
-        return $wpdb->get_var( $sql );
-    }
-
-
     /** Text displayed when no post data is available */
     public function no_items() {
         _e( 'No posts avaliable.', 'akolade-aggregator' );
@@ -75,13 +45,9 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
                 return $item[ $column_name ];
                 break;
             case 'status':
-                $status_value = 'completed';
+                $status_value = get_post_status($item['post_id']);
 
-                if ((int)$item[ $column_name ] === 1) {
-                    $status_value = 'Pending (New)';
-                }
-
-                if ((int) $item[ $column_name ] === 2) {
+                if (! $status_value) {
                     $status_value = 'Pending';
                 }
 
@@ -104,7 +70,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
      */
     function column_cb( $item ) {
         return sprintf(
-            '<input type="checkbox" name="bulk-delete[]" value="%s" />', $item['id']
+            '<input type="checkbox" name="bulk-action[]" value="%s" />', $item['id']
         );
     }
 
@@ -118,15 +84,27 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
      */
     function column_post_title( $item ) {
 
-        $delete_nonce = wp_create_nonce( 'ak_post_action_nonce' );
+        $action_nonce = wp_create_nonce( 'ak_post_action_nonce' );
 
-        $title = '<strong>' . $item['post_title'] . '</strong>';
+        if ($item['post_id']) {
+            $title = '<a href="' . get_edit_post_link($item['post_id']) . '" target="_blank"><strong>' . $item['post_title'] . '</strong></a>';
+        } else {
+            $title = '<strong>' . $item['post_title'] . '</strong>';
+        }
 
-        $actions = [
-            'delete' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $delete_nonce ),
-            'save-as-draft' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Save as draft</a>', esc_attr( $_REQUEST['page'] ), 'save-as-draft', absint( $item['id'] ), $delete_nonce ),
-            'publish' => sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Publish</a>', esc_attr( $_REQUEST['page'] ), 'publish', absint( $item['id'] ), $delete_nonce )
-        ];
+        $actions = [];
+        if ($item['post_id']) {
+            $actions['edit'] = sprintf( '<a href="%s" target="_blank">Edit</a>', get_edit_post_link($item['post_id']));
+            $actions['view'] = sprintf( '<a href="%s" target="_blank">View</a>', get_permalink($item['post_id']));
+        }
+
+        if ($item['post_canonical_url']) {
+            $actions['view-original'] = sprintf( '<a href="%s" target="_blank">View Original</a>', $item['post_canonical_url']);
+        }
+
+        $actions['delete'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s" class="delete-action">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $action_nonce );
+        $actions['save-as-draft'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Save as draft</a>', esc_attr( $_REQUEST['page'] ), 'save-as-draft', absint( $item['id'] ), $action_nonce );
+        $actions['publish'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Publish</a>', esc_attr( $_REQUEST['page'] ), 'publish', absint( $item['id'] ), $action_nonce );
 
         return $title . $this->row_actions( $actions );
     }
@@ -194,7 +172,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
 
         $per_page     = $this->get_items_per_page( 'posts_per_page', 5 );
         $current_page = $this->get_pagenum();
-        $total_items  = self::record_count();
+        $total_items  = $this->db->record_count();
 
         $this->set_pagination_args( [
             'total_items' => $total_items,
@@ -216,19 +194,22 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $current = ( !empty($_REQUEST['status']) ? $_REQUEST['status'] : 'all');
 
         //All
+        $record_count = $this->db->record_count();
         $class = ($current == 'all' ? ' class="current"' :'');
         $all_url = remove_query_arg('status');
-        $views['all'] = "<a href='{$all_url }' {$class} >All</a>";
+        $views['all'] = "<a href='{$all_url }' {$class} >All (" . $record_count . ")</a>";
 
         //Pending
-        $foo_url = add_query_arg('status','pending');
+        $pending_count = $this->db->pending_record_count();
+        $pending_url = add_query_arg('status','pending');
         $class = ($current == 'pending' ? ' class="current"' :'');
-        $views['pending'] = "<a href='{$foo_url}' {$class} >Pending</a>";
+        $views['pending'] = "<a href='{$pending_url}' {$class} >Pending (" . $pending_count . ")</a>";
 
         //Completed
-        $bar_url = add_query_arg('status','completed');
+        $completed_count = $this->db->completed_record_count();
+        $completed_url = add_query_arg('status','completed');
         $class = ($current == 'completed' ? ' class="current"' :'');
-        $views['completed'] = "<a href='{$bar_url}' {$class} >Completed</a>";
+        $views['completed'] = "<a href='{$completed_url}' {$class} >Completed (" . $completed_count . ")</a>";
 
         return $views;
     }
@@ -295,7 +276,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
                 die( 'Go get a life script kiddies' );
             }
             else {
-                self::delete_post( absint( $_GET['post'] ) );
+                $this->db->delete_post( absint( $_GET['post'] ) );
             }
 
         }
@@ -304,12 +285,11 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-delete' )
             || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-delete' )
         ) {
-
-            $delete_ids = esc_sql( $_POST['bulk-delete'] );
+            $delete_ids = esc_sql( $_POST['bulk-action'] );
 
             // loop over the array of record IDs and delete them
             foreach ( $delete_ids as $id ) {
-                self::delete_post( $id );
+                $this->db->delete_post( $id );
 
             }
         }
@@ -336,8 +316,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-save-as-draft' )
             || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-save-as-draft' )
         ) {
-
-            $ak_post_ids = esc_sql( $_POST['bulk-save-as-draft'] );
+            $ak_post_ids = esc_sql( $_POST['bulk-action'] );
 
             // loop over the array of record IDs and delete them
             foreach ( $ak_post_ids as $id ) {
@@ -368,7 +347,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-publish' )
         ) {
 
-            $ak_post_ids = esc_sql( $_POST['bulk-publish'] );
+            $ak_post_ids = esc_sql( $_POST['bulk-action'] );
 
             // loop over the array of record IDs and delete them
             foreach ( $ak_post_ids as $id ) {

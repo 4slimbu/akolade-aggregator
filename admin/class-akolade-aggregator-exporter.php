@@ -77,6 +77,9 @@ class Akolade_Aggregator_Exporter {
 
                 if ( is_wp_error( $response ) ) {
                     error_log($response->get_error_message());
+                    echo '<pre>';
+                    var_dump( $response);
+                    die();
                 } else {
                     echo '<pre>';
                     var_dump( wp_remote_retrieve_body($response));
@@ -102,12 +105,10 @@ class Akolade_Aggregator_Exporter {
     private function prepare_data($post)
     {
         $data = [];
-        $data['channel'] = $this->parse_domain_from_url(site_url());
-
-        // post
         $post->post_content = $this->replace_embeded_images_with_placeholder($post->post_content);
+        $post->channel = $this->parse_domain_from_url(site_url());;
+        $post->canonical_url = get_permalink($post->ID);
         $data['post'] = $post;
-        $data['post_canonical_url'] = get_permalink($post->ID);
         $data['post_meta'] = $this->replace_meta_field_image_id_with_src(get_post_meta($post->ID));
 
         // Author
@@ -118,6 +119,9 @@ class Akolade_Aggregator_Exporter {
         if ($taxonomies) {
             foreach (get_taxonomies() as $taxonomy) {
                 $terms = wp_get_post_terms($post->ID, $taxonomy);
+                echo "<pre>";
+                var_dump($terms);
+                die();
                 if ($terms) {
                     foreach ($terms as $term) {
                         $data['post_terms'][] = $term;
@@ -179,10 +183,23 @@ class Akolade_Aggregator_Exporter {
     private function replace_meta_field_image_id_with_src($post_meta)
     {
         $keys_with_image_id_value = [];
+        $keys_with_image_src_value = [];
+        $serialized_keys_with_image_value = [];
+
         foreach ($post_meta as $key => $item) {
             if (in_array($key, $keys_with_image_id_value)) {
                 $img_src = wp_get_attachment_url($item[0]);
-                $post_meta[$key][0] = $img_src;
+                $post_meta[$key][0] = '%akagidstart%' . $img_src . '%akagidend%';
+            }
+
+            if (in_array($key, $keys_with_image_src_value)) {
+                $img_src = wp_get_attachment_url($item[0]);
+                $post_meta[$key][0] = '%akagsrcstart%' . $img_src . '%akagsrcend%';
+            }
+
+            if (in_array($key, $serialized_keys_with_image_value)) {
+//                $img_src = wp_get_attachment_url($item[0]);
+//                $post_meta[$key][0] = '%akagidstart%' . $img_src . '%akagidend%';
             }
         }
 

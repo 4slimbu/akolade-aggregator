@@ -18,16 +18,16 @@ class Akolade_Aggregator_DB {
      * @var mixed|void $options Stores options for plugin setting
      */
     public $options;
-    public $akolade_aggregator_table;
-    public $akolade_aggregator_imported_images_table;
+    public $akolade_aggregator_posts;
+    public $akolade_aggregator_cache;
     public $wpdb;
 
     public function __construct()
     {
         global $wpdb;
         $this->wpdb = $wpdb;
-        $this->akolade_aggregator_table = $wpdb->prefix . 'akolade_aggregator';
-        $this->akolade_aggregator_imported_images_table = $wpdb->prefix . 'akolade_aggregator_imported_images';
+        $this->akolade_aggregator_posts = $wpdb->prefix . 'akolade_aggregator_posts';
+        $this->akolade_aggregator_cache = $wpdb->prefix . 'akolade_aggregator_cache';
         $this->options = get_option( 'akolade-aggregator' );
     }
 
@@ -64,7 +64,7 @@ class Akolade_Aggregator_DB {
     public function count_ak_posts($post_name, $post_type)
     {
         return $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM `{$this->akolade_aggregator_table}` WHERE `post_name` = %s AND `post_type` = %s",
+            "SELECT COUNT(*) FROM `{$this->akolade_aggregator_posts}` WHERE `post_name` = %s AND `post_type` = %s",
             $post_name,
             $post_type
         ));
@@ -73,7 +73,7 @@ class Akolade_Aggregator_DB {
     public function get_ak_post($post_id)
     {
         return $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM `{$this->akolade_aggregator_table}` WHERE `id` = %s",
+            "SELECT * FROM `{$this->akolade_aggregator_posts}` WHERE `id` = %s",
             $post_id
         ));
     }
@@ -81,7 +81,7 @@ class Akolade_Aggregator_DB {
     public function insert_ak_post($row)
     {
         return $this->wpdb->insert(
-            $this->akolade_aggregator_table,
+            $this->akolade_aggregator_posts,
             $row
         );
     }
@@ -89,7 +89,7 @@ class Akolade_Aggregator_DB {
     public function update_ak_post_using_id($row, $id)
     {
         return $this->wpdb->update(
-            $this->akolade_aggregator_table,
+            $this->akolade_aggregator_posts,
             $row,
             [
                 'id' => $id,
@@ -100,7 +100,7 @@ class Akolade_Aggregator_DB {
     public function update_ak_post($row, $post_name, $post_type)
     {
         return $this->wpdb->update(
-            $this->akolade_aggregator_table,
+            $this->akolade_aggregator_posts,
             $row,
             [
                 'post_name' => $post_name,
@@ -118,7 +118,7 @@ class Akolade_Aggregator_DB {
     {
         $data = [];
 
-        $result = $this->wpdb->get_results("SELECT DISTINCT `post_type` FROM {$this->akolade_aggregator_table}");
+        $result = $this->wpdb->get_results("SELECT DISTINCT `post_type` FROM {$this->akolade_aggregator_posts}");
 
         if ($result) {
             foreach ($result as $item) {
@@ -133,7 +133,7 @@ class Akolade_Aggregator_DB {
     {
         $data = [];
 
-        $result = $this->wpdb->get_results("SELECT DISTINCT `channel` FROM {$this->akolade_aggregator_table}");
+        $result = $this->wpdb->get_results("SELECT DISTINCT `channel` FROM {$this->akolade_aggregator_posts}");
 
         if ($result) {
             foreach ($result as $item) {
@@ -154,7 +154,7 @@ class Akolade_Aggregator_DB {
      */
     public function get_ak_posts( $per_page = 5, $page_number = 1 ) {
 
-        $sql = "SELECT * FROM {$this->akolade_aggregator_table}";
+        $sql = "SELECT * FROM {$this->akolade_aggregator_posts}";
 
         $isWhere = false;
         if (! empty( $_REQUEST['channel'])) {
@@ -167,6 +167,21 @@ class Akolade_Aggregator_DB {
             $isWhere = true;
         }
 
+        if (! empty( $_REQUEST['status'])) {
+            if ($_REQUEST['status'] === 'pending') {
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_id` is NULL';
+            }
+
+            if ($_REQUEST['status'] === 'completed') {
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_id` is not NULL';
+            }
+            $isWhere = true;
+        }
+
+        if (! empty( $_REQUEST['s'])) {
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_title` LIKE "%' . esc_sql( $_REQUEST['s'] ) . '%"';
+            $isWhere = true;
+        }
 
         if ( ! empty( $_REQUEST['orderby'] ) ) {
             $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
@@ -200,16 +215,20 @@ class Akolade_Aggregator_DB {
      */
     function ak_get_imported_image( $src , $return = 'id') {
         $row =  $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM `{$this->akolade_aggregator_imported_images}` WHERE `img_url` = %s",
+            "SELECT * FROM `{$this->akolade_aggregator_cache}` WHERE `key` = %s",
             $src
         ));
 
+        if (! $row) {
+            return false;
+        }
+
         if ($return === 'id') {
-            return $row->mapped_img_id;
+            return $row->value;
         }
 
         if ($return === 'src') {
-            return wp_get_attachment_url($row->mapped_img_id);
+            return wp_get_attachment_url($row->value);
         }
 
         return false;
@@ -226,13 +245,67 @@ class Akolade_Aggregator_DB {
     function ak_remember_imported_image($src, $mapped_id)
     {
         $row = [
-            'img_url' => $src,
-            'mapped_img_id' => $mapped_id
+            'key' => $src,
+            'value' => $mapped_id
         ];
 
         return $this->wpdb->insert(
-            $this->akolade_aggregator_imported_images_table,
+            $this->akolade_aggregator_cache,
             $row
+        );
+    }
+
+    /**
+     * Returns the count of records in the database.
+     *
+     * @return null|string
+     */
+    public function record_count() {
+        global $wpdb;
+
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts}";
+
+        return $wpdb->get_var( $sql );
+    }
+
+    /**
+     * Returns the count of pending records in the database.
+     *
+     * @return null|string
+     */
+    public function pending_record_count() {
+        global $wpdb;
+
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `post_id` is NULL";
+
+        return $wpdb->get_var( $sql );
+    }
+
+    /**
+     * Returns the count of pending records in the database.
+     *
+     * @return null|string
+     */
+    public function completed_record_count() {
+        global $wpdb;
+
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `post_id` is not NULL";
+
+        return $wpdb->get_var( $sql );
+    }
+
+    /**
+     * Delete a post record.
+     *
+     * @param int $id post ID
+     */
+    public function delete_post( $id ) {
+        global $wpdb;
+
+        $wpdb->delete(
+            "{$this->akolade_aggregator_posts}",
+            [ 'id' => $id ],
+            [ '%d' ]
         );
     }
 }

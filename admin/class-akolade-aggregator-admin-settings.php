@@ -77,8 +77,13 @@ class Akolade_Aggregator_Admin_Settings
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
 
-        if( isset( $input['network_sites'] ) )
-            $new_input['network_sites'] = $input['network_sites'];
+        if( isset( $input['network_sites'] ) ) {
+            foreach ($input['network_sites'] as $network_site) {
+                if (! empty($network_site['title']) || ! empty($network_site['url']) || ! empty($network_site['access_token'])) {
+                    $new_input['network_sites'][] = $network_site;
+                }
+            }
+        }
 
         if( isset( $input['auto_publish'] ) )
             $new_input['auto_publish'] = sanitize_text_field( $input['auto_publish'] );
@@ -143,10 +148,13 @@ class Akolade_Aggregator_Admin_Settings
      */
     public function auto_publish_callback()
     {
-        printf(
-            '<input type="checkbox" id="auto_publish" name="akolade-aggregator[auto_publish]" value="1"  %s/><br><small>If checked, the aggregated posts will be published automatically</small>',
-            ($this->getOption('auto_publish')) ? 'checked' : ''
-        );
+        ?>
+        <select name="akolade-aggregator[auto_publish]" id="auto_publish" value="<?php echo $this->getOption('auto_publish')?>">
+            <option value="0" <?php echo $this->getOption('auto_publish') === "0" ? 'selected': '' ?>>Import Only</option>
+            <option value="1" <?php echo $this->getOption('auto_publish') === "1" ? 'selected': '' ?>>Import And Save as Draft</option>
+            <option value="2" <?php echo $this->getOption('auto_publish') === "2" ? 'selected': '' ?>>Import And Publish</option>
+        </select>
+        <?php
     }
 
     public function render_settings()
