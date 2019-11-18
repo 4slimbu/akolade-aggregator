@@ -26,17 +26,15 @@ class Akolade_Aggregator_Importer {
         'first_name', 'last_name', 'description', 'role'
     ];
 
-    /**
-     * List of field type for special meta field only.
-     * Fields not specified can be assumed as string.
-     *
-     * @var array
-     */
-    private $meta_field_type = [
-        '_thumbnail_id' => 'img_id',
-//        '_thumbnail_id' => 'img_src',
-//        '_thumbnail_id' => 'serialized_img_object',
-    ];
+    private $meta_keys_with_image_id_value = ['_thumbnail_id', 'menu_thumbnail'];
+
+    private $meta_keys_with_image_src_value = [];
+
+    private $meta_serialized_keys_with_image_value = ['post-sponser-logo'];
+
+    private $meta_keys_with_custom_post_type_id = ['event_custom_template', 'event_sponsers'];
+
+    private $meta_keys_with_term_id = ['event_speakers'];
 
     private $db;
 
@@ -109,16 +107,16 @@ class Akolade_Aggregator_Importer {
 
         $data = json_decode($import_data->data);
         $post = $data->post;
-        $post_meta = $data->post_meta ?? null;
-        $post_author = $data->post_author ?? null;
-        $post_terms = $data->post_terms ?? null;
-        $post_images = $data->post_images ?? null;
+        $post_meta = $data->post_meta ? $data->post_meta : null;
+        $post_author = $data->post_author ? $data->post_author : null;
+        $post_terms = $data->post_terms ? $data->post_terms : null;
+        $post_images = $data->post_images ? $data->post_terms : null;
 
         $post_id = $this->import_post($post, $status, $this->import_author($post_author->data));
         // Set channel
         $this->assign_post_meta($post_id, $post_meta);
         $this->assign_post_terms($post_id, $this->import_terms($post_terms));
-        $this->import_and_assign_images_to_post($post_id, $post_images, $post_meta);
+        $this->import_and_assign_images_to_post($post_id, $post_images);
     }
 
     /**
@@ -175,13 +173,53 @@ class Akolade_Aggregator_Importer {
         if ($post_meta) {
             foreach ($post_meta as $key => $value) {
                 // Reset featured image, it will be set when importing and assigning images
-                if ($key === '_thumbnail_id') {
-                    update_post_meta($post_id, $key, '');
+                if (in_array($key, $this->meta_keys_with_image_id_value)) {
+                    $img_id = $this->replace_embeded_image_placeholder($value[0]);
+                    $post_meta[$key][0] = $img_id;
+                } elseif (in_array($key, $this->meta_keys_with_image_src_value)) {
+                    $img_src = $this->replace_embeded_image_placeholder($value[0]);
+                    $post_meta[$key][0] = $img_src;
+                } elseif (in_array($key, $this->meta_serialized_keys_with_image_value)) {
+                    $item_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
+                    $item_data['url'] = $this->replace_embeded_image_placeholder($item_data['url']);
+                    $item_data['id'] = $this->replace_embeded_image_placeholder($item_data['id']);
+                    $item_data['thumbnail'] = wp_get_attachment_image_src($item_data['id'], 'thumbnail')[0];
+                    $post_meta[$key][0] = $item_data;
+                } elseif (in_array($key, $this->meta_keys_with_term_id)) {
+                    $term = $post_meta[$key][0];
+                    $term = get_term_by($term->slug, $term->taxonomy);
+                    if ($term instanceof WP_Term) {
+                        $post_meta[$key][0] = $term->term_id;
+                    } else {
+                        $post_meta[$key][0] = '';
+                    }
+                } elseif (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
+                    $linked_posts = get_posts(array(
+                        'name' => $post_meta[$key][0]->post_name,
+                        'posts_per_page' => 1,
+                        'post_type' => $post_meta[$key][0]->post_type,
+                        'post_status' => 'publish'
+                    ));
+
+                    if ($linked_posts && ! $linked_posts instanceof WP_Error) {
+                        $post_meta[$key][0] = $linked_posts[0]->ID;
+                    } else {
+                        $post_meta[$key][0] = '';
+                    }
+
                 } else {
-                    update_post_meta($post_id, $key, $value[0]);
+                    // do nothing
+                }
+
+                if (is_serialized($post_meta[$key][0])) {
+                    $array_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
+                    update_post_meta($post_id, $key, $array_data);
+                } else {
+                    update_post_meta($post_id, $key, $post_meta[$key][0]);
                 }
             }
         }
+
     }
 
     /**
@@ -264,12 +302,11 @@ class Akolade_Aggregator_Importer {
     /**
      * @param $post_id
      * @param $post_images
-     * @param null $post_meta
      * @return bool
      */
-    private function import_and_assign_images_to_post($post_id, $post_images, $post_meta = null)
+    private function import_and_assign_images_to_post($post_id, $post_images)
     {
-        if (! $post_images || ! $post_meta) {
+        if (! $post_images) {
             return false;
         }
 
@@ -277,22 +314,18 @@ class Akolade_Aggregator_Importer {
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-        $featured_image_id = null;
-        if (isset($post_meta->_thumbnail_id)) {
-            $featured_image_id = $post_meta->_thumbnail_id[0];
-        }
-
         if (is_array($post_images) && !empty($post_images)) {
             foreach ($post_images as $image) {
                 $image_url = $image->guid;
                 $saved_image_id = $this->save_image_to_post($image_url, $post_id);
 
-                // If image is featured image
-                if ($image->ID === $featured_image_id && is_int($saved_image_id)) {
-                    update_post_meta($post_id, '_thumbnail_id', $saved_image_id);
+                if ($saved_image_id && (! $saved_image_id instanceof WP_Error) ) {
+                    return true;
                 }
             }
         }
+
+        return false;
     }
 
     /**
@@ -356,8 +389,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-//                $image_url = "http://048d46e7.ngrok.io/wp-content/uploads/2019/06/blake-wisz-1554907-unsplash.jpg";
-            $saved_image_id = media_sideload_image($image_url, $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -374,7 +406,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '04b54580.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -394,7 +426,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '04b54580.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;

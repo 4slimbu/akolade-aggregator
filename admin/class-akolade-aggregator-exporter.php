@@ -19,7 +19,17 @@ class Akolade_Aggregator_Exporter {
      */
     private $options;
 
-    private $exportable = ['post', 'jobs', 'retail_events', 'special-content'];
+    private $exportable = ['post', 'jobs', 'retail_events', 'special-content', 'retail_speakers'];
+
+    private $meta_keys_with_image_id_value = ['_thumbnail_id', 'menu_thumbnail'];
+
+    private $meta_keys_with_image_src_value = [];
+
+    private $meta_serialized_keys_with_image_value = ['post-sponser-logo'];
+
+    private $meta_keys_with_custom_post_type_id = ['event_custom_template', 'event_sponsers'];
+
+    private $meta_keys_with_term_id = ['event_speakers'];
 
     public function __construct()
     {
@@ -44,6 +54,11 @@ class Akolade_Aggregator_Exporter {
 
         // Check if exportable
         if (! in_array($post->post_type, $this->exportable)) {
+            return;
+        }
+
+        // Prevent exporting loop when post saved from this plugin
+        if (get_current_screen() && get_current_screen()->parent_base === 'akolade_aggregator') {
             return;
         }
 
@@ -81,9 +96,9 @@ class Akolade_Aggregator_Exporter {
                     var_dump( $response);
                     die();
                 } else {
-                    echo '<pre>';
-                    var_dump( wp_remote_retrieve_body($response));
-                    die();
+//                    echo '<pre>';
+//                    var_dump( wp_remote_retrieve_body($response));
+//                    die();
                 }
             }
         }
@@ -109,7 +124,7 @@ class Akolade_Aggregator_Exporter {
         $post->channel = $this->parse_domain_from_url(site_url());;
         $post->canonical_url = get_permalink($post->ID);
         $data['post'] = $post;
-        $data['post_meta'] = $this->replace_meta_field_image_id_with_src(get_post_meta($post->ID));
+        $data['post_meta'] = $this->replace_meta_field_special_content(get_post_meta($post->ID));
 
         // Author
         $data['post_author'] = get_userdata($post->post_author);
@@ -119,9 +134,6 @@ class Akolade_Aggregator_Exporter {
         if ($taxonomies) {
             foreach (get_taxonomies() as $taxonomy) {
                 $terms = wp_get_post_terms($post->ID, $taxonomy);
-                echo "<pre>";
-                var_dump($terms);
-                die();
                 if ($terms) {
                     foreach ($terms as $term) {
                         $data['post_terms'][] = $term;
@@ -129,6 +141,10 @@ class Akolade_Aggregator_Exporter {
                 }
             }
         }
+
+        echo '<pre>';
+        var_dump($data['post_terms']);
+        die();
 
         // Images
         $attachments= get_attached_media( 'image', $post->ID );
@@ -180,26 +196,38 @@ class Akolade_Aggregator_Exporter {
         return $content;
     }
 
-    private function replace_meta_field_image_id_with_src($post_meta)
+    private function replace_meta_field_special_content($post_meta)
     {
-        $keys_with_image_id_value = [];
-        $keys_with_image_src_value = [];
-        $serialized_keys_with_image_value = [];
-
         foreach ($post_meta as $key => $item) {
-            if (in_array($key, $keys_with_image_id_value)) {
+            if (in_array($key, $this->meta_keys_with_image_id_value)) {
                 $img_src = wp_get_attachment_url($item[0]);
                 $post_meta[$key][0] = '%akagidstart%' . $img_src . '%akagidend%';
             }
 
-            if (in_array($key, $keys_with_image_src_value)) {
+            if (in_array($key, $this->meta_keys_with_image_src_value)) {
                 $img_src = wp_get_attachment_url($item[0]);
                 $post_meta[$key][0] = '%akagsrcstart%' . $img_src . '%akagsrcend%';
             }
 
-            if (in_array($key, $serialized_keys_with_image_value)) {
-//                $img_src = wp_get_attachment_url($item[0]);
-//                $post_meta[$key][0] = '%akagidstart%' . $img_src . '%akagidend%';
+            if (in_array($key, $this->meta_serialized_keys_with_image_value)) {
+                $item_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
+                $item_data['url'] = '%akagsrcstart%' . $item_data['url'] . '%akagsrcend%';
+                $item_data['id'] = '%akagidstart%' . $item_data['url'] . '%akagidend%';
+                $item_data['thumbnail'] = '';
+
+                $post_meta[$key][0] = serialize($item_data);
+            }
+
+            if (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
+                $linked_post = get_post( $post_meta[$key][0] );
+                $post_meta[$key][0] = [
+                    'post_name' => $linked_post->post_name,
+                    'post_type' => $linked_post->post_type
+                ];
+            }
+
+            if (in_array($key, $this->meta_keys_with_term_id)) {
+                $post_meta[$key][0] = get_term( $post_meta[$key][0]);
             }
         }
 
