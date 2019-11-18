@@ -10,7 +10,8 @@
  * @subpackage Akolade_Aggregator/admin
  * @author     Akolade <developer@akolade.com.au>
  */
-class Akolade_Aggregator_Exporter {
+class Akolade_Aggregator_Exporter
+{
 
     /**
      * Options
@@ -33,7 +34,7 @@ class Akolade_Aggregator_Exporter {
 
     public function __construct()
     {
-        $this->options = get_option( 'akolade-aggregator' );
+        $this->options = get_option('akolade-aggregator');
     }
 
     public function get_option($option)
@@ -53,7 +54,7 @@ class Akolade_Aggregator_Exporter {
         }
 
         // Check if exportable
-        if (! in_array($post->post_type, $this->exportable)) {
+        if (!in_array($post->post_type, $this->exportable)) {
             return;
         }
 
@@ -62,6 +63,11 @@ class Akolade_Aggregator_Exporter {
             return;
         }
 
+        $this->export($post);
+    }
+
+    public function export($post)
+    {
         // data to post
         $data = $this->prepare_data($post);
 
@@ -75,12 +81,12 @@ class Akolade_Aggregator_Exporter {
         if ($network_sites) {
             foreach ($network_sites as $network) {
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
-                $response = wp_remote_post( $url, array(
+                $response = wp_remote_post($url, array(
                     'method' => 'POST',
                     'timeout' => 15,
                     'redirection' => 5,
 //                    'blocking' => false,
-                    'body'    => [
+                    'body' => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,
                         'access_token' => $network['access_token']
@@ -88,12 +94,12 @@ class Akolade_Aggregator_Exporter {
                     'headers' => array(
                         'Content-type' => 'application/x-www-form-urlencoded'
                     ),
-                ) );
+                ));
 
-                if ( is_wp_error( $response ) ) {
+                if (is_wp_error($response)) {
                     error_log($response->get_error_message());
                     echo '<pre>';
-                    var_dump( $response);
+                    var_dump($response);
                     die();
                 } else {
 //                    echo '<pre>';
@@ -111,7 +117,7 @@ class Akolade_Aggregator_Exporter {
         $domain = isset($pieces['host']) ? $pieces['host'] : '';
 
         if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
-            $domain_name = strstr( $regs['domain'], '.', true );
+            $domain_name = strstr($regs['domain'], '.', true);
         }
 
         return $domain_name;
@@ -131,24 +137,29 @@ class Akolade_Aggregator_Exporter {
 
         // Terms
         $taxonomies = get_taxonomies();
+        $data['post_terms'] = [];
         if ($taxonomies) {
             foreach (get_taxonomies() as $taxonomy) {
                 $terms = wp_get_post_terms($post->ID, $taxonomy);
                 if ($terms) {
                     foreach ($terms as $term) {
-                        $data['post_terms'][] = $term;
+                        $term->belongs_to_post = true;
+                        array_unshift($data['post_terms'], $term);
+                        $parent_term_id = $term->parent;
+
+                        while ($parent_term_id) {
+                            $current_term = get_term($parent_term_id, $taxonomy);
+                            $parent_term_id = $current_term->parent;
+                            array_unshift($data['post_terms'], $current_term);
+                        }
                     }
                 }
             }
         }
 
-        echo '<pre>';
-        var_dump($data['post_terms']);
-        die();
-
         // Images
-        $attachments= get_attached_media( 'image', $post->ID );
-        foreach($attachments as $att_id => $attachment) {
+        $attachments = get_attached_media('image', $post->ID);
+        foreach ($attachments as $att_id => $attachment) {
             $data['post_images'][] = $attachment;
         }
 
@@ -219,7 +230,7 @@ class Akolade_Aggregator_Exporter {
             }
 
             if (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
-                $linked_post = get_post( $post_meta[$key][0] );
+                $linked_post = get_post($post_meta[$key][0]);
                 $post_meta[$key][0] = [
                     'post_name' => $linked_post->post_name,
                     'post_type' => $linked_post->post_type
@@ -227,7 +238,7 @@ class Akolade_Aggregator_Exporter {
             }
 
             if (in_array($key, $this->meta_keys_with_term_id)) {
-                $post_meta[$key][0] = get_term( $post_meta[$key][0]);
+                $post_meta[$key][0] = get_term($post_meta[$key][0]);
             }
         }
 

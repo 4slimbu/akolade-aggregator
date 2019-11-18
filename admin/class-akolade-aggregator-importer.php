@@ -258,39 +258,34 @@ class Akolade_Aggregator_Importer {
         }
 
         $response = [];
-
-        //TODO: Make more flexible to address parent term issues
         foreach ($terms as $term) {
             // Check if term exists
             $existing_term = term_exists($term->slug, $term->taxonomy);
             if ($existing_term) {
                 $response[] = [
                     'id' => (int)$existing_term['term_id'],
-                    'taxonomy' => $term->taxonomy
+                    'taxonomy' => $term->taxonomy,
+                    'belongs_to_post' => $term->belongs_to_post
                 ];
             } else {
+                $term_parent = $this->find_term_using_id($term->parent, $terms);
+                if ($term_parent) {
+                    $term_parent = term_exists($term_parent->slug, $term_parent->taxonomy);
+                }
+
                 $args = [
                     'description' => $term->description,
                     'slug' => $term->slug,
+                    'parent' => isset($term_parent['term_id']) ? $term_parent['term_id'] : 0
                 ];
-
-                // Check if parent id exists
-                $parent_term_id = null;
-                if ($term->parent) {
-                    // Check if parent exists in imported list
-                    $existing_parent_term = term_exists($term->parent, $term->taxonomy);
-
-                    if ($existing_parent_term) {
-                        $args['parent'] = $existing_parent_term['term_id'];
-                    }
-                }
 
                 $inserted_term = wp_insert_term($term->name, $term->taxonomy, $args);
 
                 if (is_array($inserted_term) && isset($inserted_term['term_id'])) {
                     $response[] = [
                         'id' => (int)$inserted_term['term_id'],
-                        'taxonomy' => $term->taxonomy
+                        'taxonomy' => $term->taxonomy,
+                        'belongs_to_post' => $term->belongs_to_post
                     ];
                 }
             }
@@ -339,9 +334,19 @@ class Akolade_Aggregator_Importer {
             return false;
         }
 
+        $grouped_terms = [];
         if ($terms) {
             foreach ($terms as $term) {
-                wp_set_object_terms($post_id, $term['id'], $term['taxonomy']);
+                if (isset($term['belongs_to_post']) && $term['belongs_to_post']) {
+                    $grouped_terms[$term['taxonomy']][] = $term['id'];
+                }
+            }
+        }
+
+
+        if ($terms) {
+            foreach ($grouped_terms as $key => $value) {
+                wp_set_post_terms($post_id, $value, $key);
             }
         }
     }
@@ -442,5 +447,25 @@ class Akolade_Aggregator_Importer {
         );
 
         return $content;
+    }
+
+    /**
+     * @param $id
+     * @param $terms_array
+     * @return bool|mixed
+     */
+    private function find_term_using_id($id, $terms_array)
+    {
+        if (! is_array($terms_array)) {
+            return false;
+        }
+
+        foreach ($terms_array as $term) {
+            if ($id === $term->term_id) {
+                return $term;
+            }
+        }
+
+        return false;
     }
 }
