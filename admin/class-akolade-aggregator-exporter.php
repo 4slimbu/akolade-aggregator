@@ -86,7 +86,7 @@ class Akolade_Aggregator_Exporter
                 $url = trailingslashit($network['url']) . 'wp-admin/admin-ajax.php';
                 $response = wp_remote_post($url, array(
                     'method' => 'POST',
-                    'timeout' => 15,
+                    'timeout' => 30,
                     'redirection' => 5,
 //                    'blocking' => false,
                     'body' => [

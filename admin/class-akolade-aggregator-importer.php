@@ -408,7 +408,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -425,7 +425,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -445,7 +445,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
