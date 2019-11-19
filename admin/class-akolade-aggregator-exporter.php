@@ -20,7 +20,7 @@ class Akolade_Aggregator_Exporter
      */
     private $options;
 
-    private $exportable = ['post', 'jobs', 'retail_events', 'special-content', 'retail_speakers'];
+    private $exportable = ['post', 'jobs', 'retail_events', 'special-content', 'retail_speakers', 'courses'];
 
     private $meta_keys_with_image_id_value = ['_thumbnail_id', 'menu_thumbnail'];
 
@@ -68,6 +68,9 @@ class Akolade_Aggregator_Exporter
 
     public function export($post)
     {
+        if (!$post) {
+            return;
+        }
         // data to post
         $data = $this->prepare_data($post);
 
@@ -207,19 +210,26 @@ class Akolade_Aggregator_Exporter
         return $content;
     }
 
+    /**
+     * @param $post_meta
+     * @return mixed
+     */
     private function replace_meta_field_special_content($post_meta)
     {
         foreach ($post_meta as $key => $item) {
+            // Replace image id
             if (in_array($key, $this->meta_keys_with_image_id_value)) {
                 $img_src = wp_get_attachment_url($item[0]);
                 $post_meta[$key][0] = '%akagidstart%' . $img_src . '%akagidend%';
             }
 
+            // Replace image src
             if (in_array($key, $this->meta_keys_with_image_src_value)) {
                 $img_src = wp_get_attachment_url($item[0]);
                 $post_meta[$key][0] = '%akagsrcstart%' . $img_src . '%akagsrcend%';
             }
 
+            // Replace images inside serialized object
             if (in_array($key, $this->meta_serialized_keys_with_image_value)) {
                 $item_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
                 $item_data['url'] = '%akagsrcstart%' . $item_data['url'] . '%akagsrcend%';
@@ -229,14 +239,19 @@ class Akolade_Aggregator_Exporter
                 $post_meta[$key][0] = serialize($item_data);
             }
 
+            // Replace custom post id, with custom post info array
             if (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
                 $linked_post = get_post($post_meta[$key][0]);
+
+                $this->export($linked_post);
+
                 $post_meta[$key][0] = [
                     'post_name' => $linked_post->post_name,
                     'post_type' => $linked_post->post_type
                 ];
             }
 
+            // Replace term id with term object
             if (in_array($key, $this->meta_keys_with_term_id)) {
                 $post_meta[$key][0] = get_term($post_meta[$key][0]);
             }

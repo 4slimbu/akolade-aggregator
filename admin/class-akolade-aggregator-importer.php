@@ -26,6 +26,8 @@ class Akolade_Aggregator_Importer {
         'first_name', 'last_name', 'description', 'role'
     ];
 
+    private $always_publish = ['special-content'];
+
     private $meta_keys_with_image_id_value = ['_thumbnail_id', 'menu_thumbnail'];
 
     private $meta_keys_with_image_src_value = [];
@@ -86,7 +88,11 @@ class Akolade_Aggregator_Importer {
         }
 
         // if auto_publish is set to "Import and Publish" Publish imported post
-        if ($this->db->get_option('auto_publish') === '2') {
+        // or if always publish is set for current post type, publish imported post
+        if (
+            $this->db->get_option('auto_publish') === '2' ||
+            in_array($post_type, $this->always_publish)
+        ) {
             $this->import($last_id, 'publish');
         }
 
@@ -107,15 +113,22 @@ class Akolade_Aggregator_Importer {
 
         $data = json_decode($import_data->data);
         $post = $data->post;
-        $post_meta = $data->post_meta ? $data->post_meta : null;
-        $post_author = $data->post_author ? $data->post_author : null;
-        $post_terms = $data->post_terms ? $data->post_terms : null;
-        $post_images = $data->post_images ? $data->post_terms : null;
+        $post_meta = isset($data->post_meta) ? $data->post_meta : null;
+        $post_author = isset($data->post_author) ? $data->post_author : null;
+        $post_terms = isset($data->post_terms) ? $data->post_terms : null;
+        $post_images = isset($data->post_images) ? $data->post_images : null;
 
-        $post_id = $this->import_post($post, $status, $this->import_author($post_author->data));
-        // Set channel
+        //First, import author because it need to be assigned to post object
+        $post_author = $this->import_author($post_author->data);
+        // Then its time to import the post object
+        $post_id = $this->import_post($post, $status, $post_author);
+        // Next import and assign post meta to post
         $this->assign_post_meta($post_id, $post_meta);
-        $this->assign_post_terms($post_id, $this->import_terms($post_terms));
+        // Import all the post related terms including parent terms
+        $post_terms = $this->import_terms($post_terms);
+        // Then assign terms that are related to post
+        $this->assign_post_terms($post_id, $post_terms);
+        // Finally, import and assign images to post
         $this->import_and_assign_images_to_post($post_id, $post_images);
     }
 
@@ -194,11 +207,12 @@ class Akolade_Aggregator_Importer {
                         $post_meta[$key][0] = '';
                     }
                 } elseif (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
+
                     $linked_posts = get_posts(array(
                         'name' => $post_meta[$key][0]->post_name,
                         'posts_per_page' => 1,
                         'post_type' => $post_meta[$key][0]->post_type,
-                        'post_status' => 'publish'
+                        'post_status' => array('publish', 'pending', 'draft', 'auto-draft', 'future', 'private', 'inherit')
                     ));
 
                     if ($linked_posts && ! $linked_posts instanceof WP_Error) {
@@ -265,7 +279,7 @@ class Akolade_Aggregator_Importer {
                 $response[] = [
                     'id' => (int)$existing_term['term_id'],
                     'taxonomy' => $term->taxonomy,
-                    'belongs_to_post' => $term->belongs_to_post
+                    'belongs_to_post' => isset($term->belongs_to_post) ? $term->belongs_to_post : false
                 ];
             } else {
                 $term_parent = $this->find_term_using_id($term->parent, $terms);
@@ -285,7 +299,7 @@ class Akolade_Aggregator_Importer {
                     $response[] = [
                         'id' => (int)$inserted_term['term_id'],
                         'taxonomy' => $term->taxonomy,
-                        'belongs_to_post' => $term->belongs_to_post
+                        'belongs_to_post' => isset($term->belongs_to_post) ? $term->belongs_to_post : false
                     ];
                 }
             }
@@ -394,7 +408,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -411,7 +425,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -431,7 +445,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2072d9a4.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '59a69a95.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
