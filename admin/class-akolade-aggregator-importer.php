@@ -160,7 +160,7 @@ class Akolade_Aggregator_Importer {
             $post_id = wp_insert_post($fillable_post_data);
         }
 
-        $fillable_post_data['post_content'] = $this->replace_embeded_image_placeholder($fillable_post_data['post_content']);
+        $fillable_post_data['post_content'] = $this->replace_embeded_special_content($fillable_post_data['post_content']);
         wp_update_post($fillable_post_data);
 
         $this->db->update_ak_post([
@@ -187,15 +187,15 @@ class Akolade_Aggregator_Importer {
             foreach ($post_meta as $key => $value) {
                 // Reset featured image, it will be set when importing and assigning images
                 if (in_array($key, $this->meta_keys_with_image_id_value)) {
-                    $img_id = $this->replace_embeded_image_placeholder($value[0]);
+                    $img_id = $this->replace_embeded_special_content($value[0]);
                     $post_meta[$key][0] = $img_id;
                 } elseif (in_array($key, $this->meta_keys_with_image_src_value)) {
-                    $img_src = $this->replace_embeded_image_placeholder($value[0]);
+                    $img_src = $this->replace_embeded_special_content($value[0]);
                     $post_meta[$key][0] = $img_src;
                 } elseif (in_array($key, $this->meta_serialized_keys_with_image_value)) {
                     $item_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
-                    $item_data['url'] = $this->replace_embeded_image_placeholder($item_data['url']);
-                    $item_data['id'] = $this->replace_embeded_image_placeholder($item_data['id']);
+                    $item_data['url'] = $this->replace_embeded_special_content($item_data['url']);
+                    $item_data['id'] = $this->replace_embeded_special_content($item_data['id']);
                     $item_data['thumbnail'] = wp_get_attachment_image_src($item_data['id'], 'thumbnail')[0];
                     $post_meta[$key][0] = $item_data;
                 } elseif (in_array($key, $this->meta_keys_with_term_id)) {
@@ -408,7 +408,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -417,7 +417,7 @@ class Akolade_Aggregator_Importer {
         return $saved_image_id;
     }
 
-    private function replace_embeded_image_placeholder($content)
+    private function replace_embeded_special_content($content)
     {
         $content = preg_replace_callback(
             '/%akagsrcstart%(.*?)%akagsrcend%/',
@@ -425,7 +425,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -445,7 +445,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2e143571.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
@@ -459,6 +459,55 @@ class Akolade_Aggregator_Importer {
             },
             $content
         );
+
+        // download rev_slider on [rev_slider alias="event-slider" download-url="slider_url"]
+        if ( class_exists( 'RevSlider' ) ) {
+            $content = preg_replace_callback(
+                '/\[rev_slider(.*?)\]/',
+                function ($matches) {
+                    $match_array = preg_split( '/(="|" )/', str_replace('\\', '', $matches[1]));
+
+                    $attributes = [];
+                    for ($i = 0; $i < count($match_array); $i += 2) {
+                        if (isset($match_array[$i]) && isset($match_array[$i + 1])) {
+                            $key = str_replace('"', '', $match_array[$i]);
+                            $key = str_replace(' ', '', $key);
+                            $value = str_replace('"', '', $match_array[$i + 1]);
+                            $value = str_replace(' ', '', $value);
+                            $attributes[$key] = $value;
+                        }
+                    }
+
+                    if (isset($attributes['download-url']) && isset($attributes['alias'])) {
+                        $alias = $attributes['alias'];
+                        $download_url = $attributes['download-url'];
+
+                        /**
+                         * The class for exporting and importing rev slider
+                         */
+                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
+                        $slider = new Akolade_Aggregator_Rev_Slider();
+                        try {
+                            // if slider exists, delete
+                            $slider->initByAlias($alias);
+                            $slider->deleteSlider();
+
+                            // Then create new one again
+                            $slider = new Akolade_Aggregator_Rev_Slider();
+                        } catch (\Exception $exception) {
+                            // do nothing
+                        }
+
+                        $slider->importSlider(str_replace('akolade.test', 'd490ddd8.ngrok.io', $download_url));
+
+                        return '[rev_slider alias="' . $alias . '"]';
+                    }
+
+                    return $matches[0];
+                },
+                $content
+            );
+        }
 
         return $content;
     }

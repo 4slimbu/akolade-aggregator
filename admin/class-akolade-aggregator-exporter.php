@@ -211,34 +211,42 @@ class Akolade_Aggregator_Exporter
         //Import Revolution Slider
         if ( class_exists( 'RevSlider' ) ) {
             $content = preg_replace_callback(
-                '/\[rev_slider alias="(.*?)"\]/',
+                '/\[rev_slider(.*?)\]/',
                 function ($matches) {
-                    $rev_slider_alias = $matches[1];
+                    $match_array = preg_split( '/(="|" )/', str_replace('\\', '', $matches[1]));
 
-                    /**
-                     * The class for exporting and importing rev slider
-                     */
-                    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
-                    $slider = new Akolade_Aggregator_Rev_Slider();
-                    $slider->initByAlias($rev_slider_alias);
-//                    $slider->exportSlider();
-                    echo '<Pre>';
-                    var_dump($slider);
+                    $attributes = [];
+                    for ($i = 0; $i < count($match_array); $i += 2) {
+                        if (isset($match_array[$i]) && isset($match_array[$i + 1])) {
+                            $key = str_replace('"', '', $match_array[$i]);
+                            $key = str_replace(' ', '', $key);
+                            $value = str_replace('"', '', $match_array[$i + 1]);
+                            $value = str_replace(' ', '', $value);
+                            $attributes[$key] = $value;
+                        }
+                    }
 
-                    die();
+                    if (isset($attributes['alias'])) {
+                        $alias = $attributes['alias'];
+                        /**
+                         * The class for exporting and importing rev slider
+                         */
+                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
+                        $slider = new Akolade_Aggregator_Rev_Slider();
+                        $slider->initByAlias($alias);
+                        $slider_path = $slider->exportSlider();
 
-                    echo ' Slider processed';
+                        return '[rev_slider alias="' . $alias . '" download-url="' . $slider_path . '"]';
+                    }
 
-
-                    // Create unique placeholder for matched image urls
-                    $placeholder = implode(",", $sources);
-
-                    return $matches[1] . '="' . $placeholder . '"';
+                    return $matches[0];
                 },
                 $content
             );
         }
 
+        var_dump($content);
+        die();
 
         return $content;
     }
