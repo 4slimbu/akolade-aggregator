@@ -200,7 +200,7 @@ class Akolade_Aggregator_Importer {
                     $post_meta[$key][0] = $item_data;
                 } elseif (in_array($key, $this->meta_keys_with_term_id)) {
                     $term = $post_meta[$key][0];
-                    $term = get_term_by($term->slug, $term->taxonomy);
+                    $term = get_term_by('slug', $term->slug, $term->taxonomy);
                     if ($term instanceof WP_Term) {
                         $post_meta[$key][0] = $term->term_id;
                     } else {

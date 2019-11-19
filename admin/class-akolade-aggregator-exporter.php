@@ -207,6 +207,39 @@ class Akolade_Aggregator_Exporter
             $content
         );
 
+        // replace [rev_slider alias="event-slider"] with placeholder
+        //Import Revolution Slider
+        if ( class_exists( 'RevSlider' ) ) {
+            $content = preg_replace_callback(
+                '/\[rev_slider alias="(.*?)"\]/',
+                function ($matches) {
+                    $rev_slider_alias = $matches[1];
+
+                    /**
+                     * The class for exporting and importing rev slider
+                     */
+                    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
+                    $slider = new Akolade_Aggregator_Rev_Slider();
+                    $slider->initByAlias($rev_slider_alias);
+//                    $slider->exportSlider();
+                    echo '<Pre>';
+                    var_dump($slider);
+
+                    die();
+
+                    echo ' Slider processed';
+
+
+                    // Create unique placeholder for matched image urls
+                    $placeholder = implode(",", $sources);
+
+                    return $matches[1] . '="' . $placeholder . '"';
+                },
+                $content
+            );
+        }
+
+
         return $content;
     }
 
