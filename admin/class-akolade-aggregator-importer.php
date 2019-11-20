@@ -67,8 +67,9 @@ class Akolade_Aggregator_Importer {
             'post_name' => $post_name,
             'channel' => $post['channel'],
             'post_type' => $post_type,
-            'data' => json_encode($data),
             'status' => $this->db->get_status_value('new'),
+            'created_at' => current_time('mysql'),
+            'data' => json_encode($data),
         ];
 
         $post_id = $this->db->count_ak_posts($post_name, $post_type);
@@ -122,6 +123,8 @@ class Akolade_Aggregator_Importer {
         $post_author = $this->import_author($post_author->data);
         // Then its time to import the post object
         $post_id = $this->import_post($post, $status, $post_author);
+        // Add canonical url and channel to post
+        $this->add_post_tracking_info($post_id, $post);
         // Next import and assign post meta to post
         $this->assign_post_meta($post_id, $post_meta);
         // Import all the post related terms including parent terms
@@ -165,6 +168,7 @@ class Akolade_Aggregator_Importer {
 
         $this->db->update_ak_post([
             'post_id' => $post_id,
+            'status' => $this->db->get_status_value('up-to-date')
         ], $post_name, $post_type);
 
         return $post_id;
@@ -408,7 +412,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -425,7 +429,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -445,7 +449,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'd490ddd8.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
@@ -498,7 +502,7 @@ class Akolade_Aggregator_Importer {
                             // do nothing
                         }
 
-                        $slider->importSlider(str_replace('akolade.test', 'd490ddd8.ngrok.io', $download_url));
+                        $slider->importSlider(str_replace('akolade.test', '6acdb85c.ngrok.io', $download_url));
 
                         return '[rev_slider alias="' . $alias . '"]';
                     }
@@ -530,5 +534,16 @@ class Akolade_Aggregator_Importer {
         }
 
         return false;
+    }
+
+    private function add_post_tracking_info($post_id, $post)
+    {
+        update_post_meta($post_id, 'canonical_url', $post->canonical_url);
+        update_post_meta($post_id, 'channel', $post->channel);
+
+        $existing_term = term_exists($post->channel, 'channel');
+        if ($existing_term) {
+            wp_set_post_terms($post_id, [$existing_term['term_id']], 'channel', 'true');
+        }
     }
 }

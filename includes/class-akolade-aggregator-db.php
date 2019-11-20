@@ -48,7 +48,7 @@ class Akolade_Aggregator_DB {
                 $status_value = 2;
                 break;
             case 'cancelled':
-                $status_value = 2;
+                $status_value = 3;
                 break;
             default;
         }
@@ -169,11 +169,11 @@ class Akolade_Aggregator_DB {
 
         if (! empty( $_REQUEST['status'])) {
             if ($_REQUEST['status'] === 'pending') {
-                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_id` is NULL';
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . '( `status` = "1" OR `status` = "2" ) ';
             }
 
             if ($_REQUEST['status'] === 'completed') {
-                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_id` is not NULL';
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `status` = "0"';
             }
             $isWhere = true;
         }
@@ -187,7 +187,7 @@ class Akolade_Aggregator_DB {
             $sql .= ' ORDER BY ' . esc_sql( $_REQUEST['orderby'] );
             $sql .= ! empty( $_REQUEST['order'] ) ? ' ' . esc_sql( $_REQUEST['order'] ) : ' ASC';
         } else {
-            $sql .= ' ORDER BY id DESC ';
+            $sql .= ' ORDER BY created_at DESC ';
         }
 
         $sql .= " LIMIT $per_page";
@@ -260,6 +260,47 @@ class Akolade_Aggregator_DB {
      *
      * @return null|string
      */
+    public function record_count_with_filter() {
+        global $wpdb;
+
+        $sql = "SELECT count(*) FROM {$this->akolade_aggregator_posts}";
+
+        $isWhere = false;
+        if (! empty( $_REQUEST['channel'])) {
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `channel` = ' . esc_sql( $_REQUEST['channel'] );
+            $isWhere = true;
+        }
+
+        if (! empty( $_REQUEST['post_type'])) {
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_type` = ' . esc_sql( $_REQUEST['post_type'] );
+            $isWhere = true;
+        }
+
+        if (! empty( $_REQUEST['status'])) {
+            if ($_REQUEST['status'] === 'pending') {
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . '( `status` = "1" OR `status` = "2" ) ';
+            }
+
+            if ($_REQUEST['status'] === 'completed') {
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `status` = "0"';
+            }
+            $isWhere = true;
+        }
+
+        if (! empty( $_REQUEST['s'])) {
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_title` LIKE "%' . esc_sql( $_REQUEST['s'] ) . '%"';
+            $isWhere = true;
+        }
+
+        return $wpdb->get_var( $sql );
+    }
+
+
+    /**
+     * Returns the count of records in the database.
+     *
+     * @return null|string
+     */
     public function record_count() {
         global $wpdb;
 
@@ -276,7 +317,7 @@ class Akolade_Aggregator_DB {
     public function pending_record_count() {
         global $wpdb;
 
-        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `post_id` is NULL";
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `status` = '1' OR `status` = '2'";
 
         return $wpdb->get_var( $sql );
     }
@@ -289,7 +330,7 @@ class Akolade_Aggregator_DB {
     public function completed_record_count() {
         global $wpdb;
 
-        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `post_id` is not NULL";
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `status` = '0'";
 
         return $wpdb->get_var( $sql );
     }

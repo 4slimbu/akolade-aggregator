@@ -44,11 +44,32 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             case 'post_type':
                 return $item[ $column_name ];
                 break;
-            case 'status':
+            case 'import_status':
+                $status_value = '';
+
+                if ($item['status'] == $this->db->get_status_value('up-to-date')) {
+                    $status_value = 'Completed';
+                }
+
+                if ($item['status'] == $this->db->get_status_value('new')) {
+                    $status_value = 'Pending (new)';
+                }
+
+                if ($item['status'] == $this->db->get_status_value('update')) {
+                    $status_value = 'Pending (update)';
+                }
+
+                if ($item['status'] == $this->db->get_status_value('cancelled')) {
+                    $status_value = 'Cancelled';
+                }
+
+                return $status_value;
+                break;
+            case 'publish_status':
                 $status_value = get_post_status($item['post_id']);
 
                 if (! $status_value) {
-                    $status_value = 'Pending';
+                    $status_value = '-';
                 }
 
                 return $status_value;
@@ -121,7 +142,8 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             'post_title'    => __( 'Title', 'akolade-aggregator' ),
             'channel'    => __( 'Channel', 'akolade-aggregator' ),
             'post_type' => __( 'Post Type', 'akolade-aggregator' ),
-            'status'    => __( 'Status', 'akolade-aggregator' ),
+            'import_status'    => __( 'Import Status', 'akolade-aggregator' ),
+            'publish_status'    => __( 'Publish Status', 'akolade-aggregator' ),
             'created_at'    => __( 'Date', 'akolade-aggregator' ),
         ];
 
@@ -170,9 +192,9 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         /** Process bulk action */
         $this->process_bulk_action();
 
-        $per_page     = $this->get_items_per_page( 'posts_per_page', 5 );
+        $per_page     = $this->get_items_per_page( 'posts_per_page', 10 );
         $current_page = $this->get_pagenum();
-        $total_items  = $this->db->record_count();
+        $total_items  = $this->db->record_count_with_filter();
 
         $this->set_pagination_args( [
             'total_items' => $total_items,

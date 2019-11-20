@@ -88,7 +88,7 @@ class Akolade_Aggregator_Exporter
                     'method' => 'POST',
                     'timeout' => 30,
                     'redirection' => 5,
-//                    'blocking' => false,
+                    'blocking' => false,
                     'body' => [
                         'action' => 'akolade_aggregator_import',
                         'data' => $data,
@@ -100,12 +100,12 @@ class Akolade_Aggregator_Exporter
                 ));
 
                 if (is_wp_error($response)) {
-                    error_log($response->get_error_message());
-                    echo '<pre>';
-                    var_dump($response);
-                    die();
+//                    error_log($response->get_error_message());
+//                    echo '<pre>error';
+//                    var_dump($response);
+//                    die();
                 } else {
-//                    echo '<pre>';
+//                    echo '<pre>success';
 //                    var_dump( wp_remote_retrieve_body($response));
 //                    die();
                 }
@@ -244,9 +244,6 @@ class Akolade_Aggregator_Exporter
                 $content
             );
         }
-
-        var_dump($content);
-        die();
 
         return $content;
     }
