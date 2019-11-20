@@ -29,3 +29,12 @@
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
+
+$option_name = 'akolade-aggregator';
+delete_option($option_name);
+
+// drop a custom database table
+global $wpdb;
+$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}akolade_aggregator");
+$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}akolade_aggregator_posts");
+$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}akolade_aggregator_cache");

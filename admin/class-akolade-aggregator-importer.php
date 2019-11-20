@@ -189,7 +189,6 @@ class Akolade_Aggregator_Importer {
 
         if ($post_meta) {
             foreach ($post_meta as $key => $value) {
-                // Reset featured image, it will be set when importing and assigning images
                 if (in_array($key, $this->meta_keys_with_image_id_value)) {
                     $img_id = $this->replace_embeded_special_content($value[0]);
                     $post_meta[$key][0] = $img_id;
