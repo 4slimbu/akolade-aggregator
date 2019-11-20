@@ -158,12 +158,12 @@ class Akolade_Aggregator_DB {
 
         $isWhere = false;
         if (! empty( $_REQUEST['channel'])) {
-            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `channel` = ' . esc_sql( $_REQUEST['channel'] );
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `channel` = "' . esc_sql( $_REQUEST['channel'] ) . '"';
             $isWhere = true;
         }
 
         if (! empty( $_REQUEST['post_type'])) {
-            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_type` = ' . esc_sql( $_REQUEST['post_type'] );
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_type` = "' . esc_sql( $_REQUEST['post_type'] ) . '"';
             $isWhere = true;
         }
 
@@ -267,12 +267,12 @@ class Akolade_Aggregator_DB {
 
         $isWhere = false;
         if (! empty( $_REQUEST['channel'])) {
-            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `channel` = ' . esc_sql( $_REQUEST['channel'] );
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `channel` = "' . esc_sql( $_REQUEST['channel'] ) . '"';
             $isWhere = true;
         }
 
         if (! empty( $_REQUEST['post_type'])) {
-            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_type` = ' . esc_sql( $_REQUEST['post_type'] );
+            $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `post_type` = "' . esc_sql( $_REQUEST['post_type'] ) . '"';
             $isWhere = true;
         }
 

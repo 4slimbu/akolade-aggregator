@@ -266,20 +266,20 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $channels = $this->db->get_ak_channels();
         ?>
         <label for="channel-selector" class="screen-reader-text">Select Channel</label>
-        <select name="channel" id="channel-selector">
-            <option value="">All Channels</option>
+        <select name="channel" id="channel-selector" value="<?php echo isset($_GET['channel']) ? $_GET['channel'] : '-1'; ?>">
+            <option value="" <?php echo isset($_GET['channel']) ? $_GET['channel'] : ''; ?>>All Channels</option>
             <?php foreach ($channels as $channel): ?>
-                <option value="<?php echo $channel; ?>"><?php echo $channel; ?></option>
+                <option value="<?php echo $channel; ?>" <?php echo isset($_GET['channel']) && $_GET['channel'] === $channel ? 'selected' : '' ?>><?php echo $channel; ?></option>
             <?php endforeach; ?>
         </select>
-        <label for="post-type-selector" class="screen-reader-text">Select Channel</label>
-        <select name="post-type" id="post-type-selector">
-            <option value="-1" selected>All Post Types</option>
+        <label for="post-type-selector" class="screen-reader-text">Select Post Type</label>
+        <select name="post_type" id="post-type-selector" value="<?php echo isset($_GET['post_type']) ? $_GET['post_type'] : ''; ?>">
+            <option value="">All Post Types</option>
             <?php foreach ($post_types as $post_type): ?>
-                <option value="<?php echo $post_type; ?>"><?php echo $post_type; ?></option>
+                <option value="<?php echo $post_type; ?>" <?php echo isset($_GET['post_type']) && $_GET['post_type'] === $post_type ? 'selected' : '' ?>><?php echo $post_type; ?></option>
             <?php endforeach; ?>
         </select>
-        <input type="submit" class="button" value="Filter">
+<!--        <input type="submit" class="button" value="Filter">-->
         <?php
     }
 

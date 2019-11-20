@@ -88,6 +88,28 @@
             }
         });
 
+        /**
+		 * Set selected value when option is chosen form drop-down in select field of filter form
+		 * This js-fix is here because it wasn't working by default.
+		 * TODO: find default solution
+         */
+        $('#channel-selector').change(function(){
+            var channel = $(this).find("option:selected").attr('value');
+            var url = window.location.href;
+            window.location.href = addParam(url, 'channel', channel);
+        });
+
+        $('#post-type-selector').change(function(){
+        	var postType = $(this).find("option:selected").attr('value');
+        	var url = window.location.href;
+            window.location.href = addParam(url, 'post_type', postType);
+        });
+
+        function addParam(currentUrl,key,val) {
+            var url = new URL(currentUrl);
+            url.searchParams.set(key, val);
+            return url.href;
+        }
     });
 
 })( jQuery );
