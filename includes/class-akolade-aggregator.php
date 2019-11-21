@@ -127,6 +127,10 @@ class Akolade_Aggregator {
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-akolade-aggregator-public.php';
 
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
 		$this->loader = new Akolade_Aggregator_Loader();
 
 	}

@@ -1,6 +1,6 @@
 <?php
 if ( ! class_exists( 'Akolade_Aggregator_WP_List_Table' ) ) {
-    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-wp-list-table.php';
+    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-wp-list-table.php';
 }
 
 /**

@@ -200,6 +200,30 @@ class Akolade_Aggregator_DB {
     }
 
     /**
+     * Retrieve posts data from the database
+     *
+     * @param int $per_page
+     * @param int $page_number
+     *
+     * @return mixed
+     */
+    public function get_ak_pending_posts( $per_page = 5, $page_number = 1 ) {
+
+        $sql = "SELECT * FROM {$this->akolade_aggregator_posts}";
+
+        $sql .= ' WHERE ( `status` = "1" OR `status` = "2" ) ';
+        $sql .= ' ORDER BY created_at ASC ';
+
+        $sql .= " LIMIT $per_page";
+        $sql .= ' OFFSET ' . ( $page_number - 1 ) * $per_page;
+
+
+        $result = $this->wpdb->get_results( $sql, 'ARRAY_A' );
+
+        return $result;
+    }
+
+    /**
      * Check if post exists by slug.
      */
     function post_exists( $post_name, $post_type ) {
@@ -284,6 +308,11 @@ class Akolade_Aggregator_DB {
             if ($_REQUEST['status'] === 'completed') {
                 $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `status` = "0"';
             }
+
+            if ($_REQUEST['status'] === 'cancelled') {
+                $sql .= ($isWhere ? ' AND ' : ' WHERE ') . ' `status` = "3"';
+            }
+
             $isWhere = true;
         }
 
@@ -323,7 +352,7 @@ class Akolade_Aggregator_DB {
     }
 
     /**
-     * Returns the count of pending records in the database.
+     * Returns the count of completed records in the database.
      *
      * @return null|string
      */
@@ -331,6 +360,19 @@ class Akolade_Aggregator_DB {
         global $wpdb;
 
         $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `status` = '0'";
+
+        return $wpdb->get_var( $sql );
+    }
+
+    /**
+     * Returns the count of cancelled records in the database.
+     *
+     * @return null|string
+     */
+    public function cancelled_record_count() {
+        global $wpdb;
+
+        $sql = "SELECT COUNT(*) FROM {$this->akolade_aggregator_posts} WHERE `status` = '3'";
 
         return $wpdb->get_var( $sql );
     }
@@ -349,4 +391,5 @@ class Akolade_Aggregator_DB {
             [ '%d' ]
         );
     }
+
 }

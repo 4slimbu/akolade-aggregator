@@ -30,7 +30,18 @@ class Akolade_Aggregator_Deactivator {
 	 * @since    1.0.0
 	 */
 	public static function deactivate() {
-
+        self::destroy_akolade_aggregator_scheduler();
 	}
+
+    private static function destroy_akolade_aggregator_scheduler()
+    {
+        /**
+         * The class responsible for managing schedules
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-scheduler.php';
+
+        $scheduler = new Akolade_Aggregator_Scheduler();
+        $scheduler->destroy();
+    }
 
 }

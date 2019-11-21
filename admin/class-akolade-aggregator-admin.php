@@ -76,6 +76,15 @@ class Akolade_Aggregator_Admin {
      */
     public $importer;
 
+    /**
+     * Scheduler Class Instance
+     *
+     * @since 1.0.0
+     * @access public
+     * @var object $scheduler The class for scheduling events
+     */
+    public $scheduler;
+
 	/**
 	 * Initialize the class and set its properties.
 	 *
@@ -156,17 +165,23 @@ class Akolade_Aggregator_Admin {
         /**
          * The class responsible for handling import
          */
-        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-importer.php';
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-importer.php';
 
         /**
          * The class responsible for handling export
          */
-        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-exporter.php';
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-exporter.php';
+
+        /**
+         * The class responsible for handling export
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-scheduler.php';
 
         $this->admin_settings = new Akolade_Aggregator_Admin_Settings();
         $this->posts_list = new Akolade_Aggregator_Posts_List();
         $this->exporter = new Akolade_Aggregator_Exporter();
         $this->importer = new Akolade_Aggregator_Importer();
+        $this->scheduler = new Akolade_Aggregator_Scheduler();
     }
 
     public function add_menu_page()

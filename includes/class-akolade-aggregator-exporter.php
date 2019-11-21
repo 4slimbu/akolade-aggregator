@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Handles post import functionality of the plugin
  *
@@ -44,6 +43,11 @@ class Akolade_Aggregator_Exporter
 
     public function handle($post_id, $post, $update)
     {
+        // Check if post status is publish
+        if ($post->post_status !== 'publish') {
+            return;
+        }
+
         // Check to see if we are autosaving
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)
             return;
@@ -231,7 +235,7 @@ class Akolade_Aggregator_Exporter
                         /**
                          * The class for exporting and importing rev slider
                          */
-                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
+                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-rev-slider.php';
                         $slider = new Akolade_Aggregator_Rev_Slider();
                         $slider->initByAlias($alias);
                         $slider_path = $slider->exportSlider();

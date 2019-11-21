@@ -12,6 +12,11 @@
  */
 class Akolade_Aggregator_Importer {
 
+    /**
+     * The post fields that importer needs to import post
+     *
+     * @var array $post_fields
+     */
     private $post_fields = [
         'post_name',
         'post_title',
@@ -21,31 +26,83 @@ class Akolade_Aggregator_Importer {
         'post_type'
     ];
 
+    /**
+     * The author fields that importer needs to import author
+     *
+     * @var array $author_fields
+     */
     private $author_fields = [
         'user_pass', 'user_login', 'user_nicename', 'user_email', 'display_name', 'nickname',
         'first_name', 'last_name', 'description', 'role'
     ];
 
+    /**
+     * Post types that will be auto published
+     *
+     * @var array $always_publish
+     */
     private $always_publish = ['special-content'];
 
+    /**
+     * Meta fields that represents image id
+     *
+     * @var array $meta_keys_with_image_id_value
+     */
     private $meta_keys_with_image_id_value = ['_thumbnail_id', 'menu_thumbnail'];
 
+    /**
+     * Meta fields that represents image src
+     *
+     * @var array
+     */
     private $meta_keys_with_image_src_value = [];
 
+    /**
+     * Meta fields that represents serialized image src/id
+     *
+     * @var array
+     */
     private $meta_serialized_keys_with_image_value = ['post-sponser-logo'];
 
+    /**
+     * Meta fields that represents custom post type id
+     *
+     * @var array
+     */
     private $meta_keys_with_custom_post_type_id = ['event_custom_template', 'event_sponsers'];
 
+    /**
+     * Meta fields that represents taxonomy term id
+     *
+     * @var array
+     */
     private $meta_keys_with_term_id = ['event_speakers'];
 
+    /**
+     * Meta keys to exclude from importing
+     */
+    private $meta_keys_to_exclude = ['_edit_last', '_edit_lock', 'post_views_count'];
+
+    /**
+     * Database layer
+     *
+     * @var Akolade_Aggregator_DB
+     */
     private $db;
 
+    /**
+     * Akolade_Aggregator_Importer constructor.
+     */
     public function __construct()
     {
         $this->db = new Akolade_Aggregator_DB();
     }
 
     /**
+     * The main function called by Exporter through ajax.
+     *
+     * Saves the data received on the request and may import assets and create post depending upon the setting
+     *
      * @return mixed
      */
     public function handle()
@@ -83,24 +140,14 @@ class Akolade_Aggregator_Importer {
             $last_id = $this->db->get_last_insert_id();
         }
 
-        // if auto_publish is set to "Import and save as draft", create draft of imported post
-        if ($this->db->get_option('auto_publish') === '1') {
-            $this->import($last_id, 'draft');
-        }
-
-        // if auto_publish is set to "Import and Publish" Publish imported post
-        // or if always publish is set for current post type, publish imported post
-        if (
-            $this->db->get_option('auto_publish') === '2' ||
-            in_array($post_type, $this->always_publish)
-        ) {
-            $this->import($last_id, 'publish');
-        }
-
         return $result;
     }
 
     /**
+     * Import Post including all the meta and assets
+     *
+     * This function is a wrapper function to imports post author, post, post_meta, post_images, post_terms
+     *
      * @param $id
      * @param string $status
      */
@@ -136,6 +183,11 @@ class Akolade_Aggregator_Importer {
     }
 
     /**
+     * Import post
+     *
+     * This function imports only fields available for Post Object.
+     * Meta data, images etc are handled by other respective functions.
+     *
      * @param $post
      * @param string $status
      * @param string $author_id
@@ -146,35 +198,43 @@ class Akolade_Aggregator_Importer {
         if (! $post) {
             return false;
         }
+
+        // initiate necessary data
         $post_name = $post->post_name;
         $post_type = $post->post_type;
+        // keep only the required fields
         $fillable_post_data = $this->filter_fields((array)$post, $this->post_fields);
-
-        $post_id = $this->db->post_exists($post_name, $post_type);
+        // Set post status
         $fillable_post_data['post_status'] = $status;
+        // Replace placeholders inside the post content
+        $fillable_post_data['post_content'] = $this->replace_embeded_special_content($fillable_post_data['post_content']);
+        // Set post author
+        $fillable_post_data['post_author'] = $author_id;
+
+        // Check if post that need to be imported, exists in the database
+        // and import or update accordingly
+        $post_id = $this->db->post_exists($post_name, $post_type);
 
         if ($post_id) {
             $fillable_post_data['ID'] = $post_id;
             wp_update_post($fillable_post_data);
         } else {
-            if ($author_id) {
-                $fillable_post_data['author'] = $author_id;
-            }
             $post_id = wp_insert_post($fillable_post_data);
         }
 
-        $fillable_post_data['post_content'] = $this->replace_embeded_special_content($fillable_post_data['post_content']);
-        wp_update_post($fillable_post_data);
-
+        // Update status on Akolade aggregator imported post list table as well
         $this->db->update_ak_post([
             'post_id' => $post_id,
             'status' => $this->db->get_status_value('up-to-date')
         ], $post_name, $post_type);
 
+        // return inserted/updated post_id
         return $post_id;
     }
 
     /**
+     * Assign meta data to post
+     *
      * @param $post_id
      * @param $post_meta
      * @return bool
@@ -189,18 +249,30 @@ class Akolade_Aggregator_Importer {
 
         if ($post_meta) {
             foreach ($post_meta as $key => $value) {
+                // Don't assign meta keys that are excluded
+                if (in_array($key, $this->meta_keys_to_exclude)) {
+                    continue;
+                }
+
+                // Replace image_id placeholder
                 if (in_array($key, $this->meta_keys_with_image_id_value)) {
                     $img_id = $this->replace_embeded_special_content($value[0]);
                     $post_meta[$key][0] = $img_id;
+
+                //Replace image_src placeholder
                 } elseif (in_array($key, $this->meta_keys_with_image_src_value)) {
                     $img_src = $this->replace_embeded_special_content($value[0]);
                     $post_meta[$key][0] = $img_src;
+
+                // Replace image inside serialized object
                 } elseif (in_array($key, $this->meta_serialized_keys_with_image_value)) {
                     $item_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
                     $item_data['url'] = $this->replace_embeded_special_content($item_data['url']);
                     $item_data['id'] = $this->replace_embeded_special_content($item_data['id']);
                     $item_data['thumbnail'] = wp_get_attachment_image_src($item_data['id'], 'thumbnail')[0];
                     $post_meta[$key][0] = $item_data;
+
+                // Replace term_id placeholder
                 } elseif (in_array($key, $this->meta_keys_with_term_id)) {
                     $term = $post_meta[$key][0];
                     $term = get_term_by('slug', $term->slug, $term->taxonomy);
@@ -209,6 +281,8 @@ class Akolade_Aggregator_Importer {
                     } else {
                         $post_meta[$key][0] = '';
                     }
+
+                // Replace custom_post_type_id placeholder
                 } elseif (in_array($key, $this->meta_keys_with_custom_post_type_id)) {
 
                     $linked_posts = get_posts(array(
@@ -228,6 +302,8 @@ class Akolade_Aggregator_Importer {
                     // do nothing
                 }
 
+                // For serialized imported content, we need to use unserialized first to prevent double serialization
+                // of data because wordpress automatically serializes the data.
                 if (is_serialized($post_meta[$key][0])) {
                     $array_data = unserialize(str_replace('\\', '', $post_meta[$key][0]));
                     update_post_meta($post_id, $key, $array_data);
@@ -241,6 +317,7 @@ class Akolade_Aggregator_Importer {
 
     /**
      * Import author if doesn't exist
+     *
      * @param $post_author
      * @return bool|false|int|WP_Error
      */
@@ -265,8 +342,16 @@ class Akolade_Aggregator_Importer {
     }
 
     /**
+     * Import terms
+     *
+     * This function expects terms to be in the order, such that independent terms like parent terms comes first and
+     * children terms at last. It is to make parent_id available for children terms to use and also to remove complex
+     * logic and loops to import hierarchical terms.
+     *
+     * This ordering part is expected to be handled while exporting.
+     *
      * @param $terms
-     * @return array|bool
+     * @return array|bool $response Contains array of terms with "belongs_to_post" key to determine if it can be attached to post
      */
     private function import_terms($terms)
     {
@@ -285,6 +370,7 @@ class Akolade_Aggregator_Importer {
                     'belongs_to_post' => isset($term->belongs_to_post) ? $term->belongs_to_post : false
                 ];
             } else {
+                // Get parent term id, if exists
                 $term_parent = $this->find_term_using_id($term->parent, $terms);
                 if ($term_parent) {
                     $term_parent = term_exists($term_parent->slug, $term_parent->taxonomy);
@@ -312,6 +398,8 @@ class Akolade_Aggregator_Importer {
     }
 
     /**
+     * Assign images, if necessary import, to post
+     *
      * @param $post_id
      * @param $post_images
      * @return bool
@@ -321,10 +409,6 @@ class Akolade_Aggregator_Importer {
         if (! $post_images) {
             return false;
         }
-
-        require_once(ABSPATH . 'wp-admin/includes/media.php');
-        require_once(ABSPATH . 'wp-admin/includes/file.php');
-        require_once(ABSPATH . 'wp-admin/includes/image.php');
 
         if (is_array($post_images) && !empty($post_images)) {
             foreach ($post_images as $image) {
@@ -341,6 +425,8 @@ class Akolade_Aggregator_Importer {
     }
 
     /**
+     * Assign terms to post
+     *
      * @param $post_id
      * @param $terms
      * @return bool
@@ -351,6 +437,7 @@ class Akolade_Aggregator_Importer {
             return false;
         }
 
+        // Group terms by taxonomy
         $grouped_terms = [];
         if ($terms) {
             foreach ($terms as $term) {
@@ -360,7 +447,7 @@ class Akolade_Aggregator_Importer {
             }
         }
 
-
+        // assign grouped terms to post for each taxonomy
         if ($terms) {
             foreach ($grouped_terms as $key => $value) {
                 wp_set_post_terms($post_id, $value, $key);
@@ -368,6 +455,13 @@ class Akolade_Aggregator_Importer {
         }
     }
 
+    /**
+     * Filters array/object elements using allowed keys list
+     *
+     * @param $data
+     * @param $allowedKeys
+     * @return array Filtered data
+     */
     private function filter_fields($data, $allowedKeys)
     {
         $data = (array) $data;
@@ -383,6 +477,11 @@ class Akolade_Aggregator_Importer {
         return $filteredData;
     }
 
+    /**
+     * Verifies the access_token passed in the importer ajax call
+     *
+     * @return bool
+     */
     private function verify_access_token()
     {
         if (! isset($_POST['access_token'])) {
@@ -411,7 +510,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -420,6 +519,15 @@ class Akolade_Aggregator_Importer {
         return $saved_image_id;
     }
 
+    /**
+     * Replace placeholder in content
+     *
+     * When content with various special placeholder like image id, image src, rev slider etc is passed,
+     * this function parses the placeholder, import them if necessary and replace it with respective id, src or content
+     *
+     * @param $content
+     * @return mixed $content Parsed Content
+     */
     private function replace_embeded_special_content($content)
     {
         $content = preg_replace_callback(
@@ -428,7 +536,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -448,7 +556,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '6acdb85c.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
@@ -488,12 +596,18 @@ class Akolade_Aggregator_Importer {
                         /**
                          * The class for exporting and importing rev slider
                          */
-                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-akolade-aggregator-rev-slider.php';
+                        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-rev-slider.php';
                         $slider = new Akolade_Aggregator_Rev_Slider();
+
                         try {
                             // if slider exists, delete
                             $slider->initByAlias($alias);
-                            $slider->deleteSlider();
+                            echo "<pre>";
+                            var_dump($slider);
+                            die();
+                            if ($slider) {
+                                $slider->deleteSlider();
+                            }
 
                             // Then create new one again
                             $slider = new Akolade_Aggregator_Rev_Slider();
@@ -501,7 +615,7 @@ class Akolade_Aggregator_Importer {
                             // do nothing
                         }
 
-                        $slider->importSlider(str_replace('akolade.test', '6acdb85c.ngrok.io', $download_url));
+                        $slider->importSlider(str_replace('akolade.test', '91d4136f.ngrok.io', $download_url));
 
                         return '[rev_slider alias="' . $alias . '"]';
                     }
@@ -516,6 +630,8 @@ class Akolade_Aggregator_Importer {
     }
 
     /**
+     * Find term using term_id in an array of WP_Term objects
+     *
      * @param $id
      * @param $terms_array
      * @return bool|mixed
@@ -526,6 +642,7 @@ class Akolade_Aggregator_Importer {
             return false;
         }
 
+        // loop through terms list and return the first term whose term_id matches the provided id
         foreach ($terms_array as $term) {
             if ($id === $term->term_id) {
                 return $term;
@@ -535,14 +652,82 @@ class Akolade_Aggregator_Importer {
         return false;
     }
 
+    /**
+     * Add post tracking info like channel and canonical url
+     *
+     * @param $post_id
+     * @param $post
+     */
     private function add_post_tracking_info($post_id, $post)
     {
+        // add canonical_url and channel to post_meta
         update_post_meta($post_id, 'canonical_url', $post->canonical_url);
         update_post_meta($post_id, 'channel', $post->channel);
 
+        // Add post to channel term if exist, else create channel term and add post to it
         $existing_term = term_exists($post->channel, 'channel');
         if ($existing_term) {
             wp_set_post_terms($post_id, [$existing_term['term_id']], 'channel', 'true');
+        } else {
+            $args = [
+                'description' => '',
+                'slug' => $post->channel,
+                'parent' => 0
+            ];
+            $inserted_term = wp_insert_term($post->channel, 'channel', $args);
+
+            if (is_array($inserted_term) && isset($inserted_term['term_id'])) {
+                wp_set_post_terms($post_id, [$inserted_term['term_id']], 'channel', 'true');
+            }
+        }
+    }
+
+    /**
+     * Import multiple posts at once
+     * Used in scheduled event
+     *
+     * @param int $count
+     */
+    public function import_posts_in_batch($count = 1)
+    {
+        $status = '';
+        $pending_posts = $this->db->get_ak_pending_posts($count);
+
+        if ($pending_posts) {
+            foreach ($pending_posts as $pending_post) {
+                // Skip if importing post status is cancelled
+                if ($pending_post->status === $this->db->get_status_value('cancelled')) {
+                    continue;
+                }
+
+                // If auto_publish is set, directly import else check other things
+                if (in_array($pending_post['post_type'], $this->always_publish)) {
+                    $status = 'publish';
+                } else {
+                    // Skip if, saving post is not set
+                    if (
+                        $this->db->get_option('auto_publish') !== '1' ||
+                        $this->db->get_option('auto_publish') !== '2'
+                    ) {
+                        continue;
+                    }
+
+                    // if auto_publish is set to "Import and save as draft", create draft of imported post
+                    if ( $this->db->get_option('auto_publish') === '1' ) {
+                        $status = 'draft';
+                    }
+
+                    // if auto_publish is set to "Import and Publish" Publish imported post
+                    if ( $this->db->get_option('auto_publish') === '2' ) {
+                        $status = 'publish';
+                    }
+                }
+
+                // Import post
+                if ($status && isset($pending_post['id'])) {
+                    $this->import($pending_post['id'], $status);
+                }
+            }
         }
     }
 }

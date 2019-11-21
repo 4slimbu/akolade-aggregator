@@ -126,6 +126,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $actions['delete'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s" class="delete-action">Delete</a>', esc_attr( $_REQUEST['page'] ), 'delete', absint( $item['id'] ), $action_nonce );
         $actions['save-as-draft'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Save as draft</a>', esc_attr( $_REQUEST['page'] ), 'save-as-draft', absint( $item['id'] ), $action_nonce );
         $actions['publish'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Publish</a>', esc_attr( $_REQUEST['page'] ), 'publish', absint( $item['id'] ), $action_nonce );
+        $actions['cancel'] = sprintf( '<a href="?page=%s&action=%s&post=%s&_wpnonce=%s">Cancel Import</a>', esc_attr( $_REQUEST['page'] ), 'cancel', absint( $item['id'] ), $action_nonce );
 
         return $title . $this->row_actions( $actions );
     }
@@ -175,7 +176,8 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $actions = [
             'bulk-delete' => 'Delete',
             'bulk-save-as-draft' => 'Save as Draft',
-            'bulk-publish' => 'Publish'
+            'bulk-publish' => 'Publish',
+            'bulk-cancel' => 'Cancel Import'
         ];
 
         return $actions;
@@ -209,6 +211,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $this->process_delete_action();
         $this->process_save_as_draft_action();
         $this->process_publish_action();
+        $this->process_cancel_action();
     }
 
     protected function get_views() {
@@ -232,6 +235,12 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
         $completed_url = add_query_arg('status','completed');
         $class = ($current == 'completed' ? ' class="current"' :'');
         $views['completed'] = "<a href='{$completed_url}' {$class} >Completed (" . $completed_count . ")</a>";
+
+        //Cancelled
+        $cancelled_count = $this->db->cancelled_record_count();
+        $cancelled_url = add_query_arg('status','cancelled');
+        $class = ($current == 'cancelled' ? ' class="current"' :'');
+        $views['cancelled'] = "<a href='{$cancelled_url}' {$class} >Cancelled (" . $cancelled_count . ")</a>";
 
         return $views;
     }
@@ -292,10 +301,10 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             $nonce = esc_attr( $_REQUEST['_wpnonce'] );
 
             if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
-                die( 'Go get a life script kiddies' );
+                die( 'Nonce verification failed' );
             }
             if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
-                die( 'Go get a life script kiddies' );
+                die( 'Nonce verification failed' );
             }
             else {
                 $this->db->delete_post( absint( $_GET['post'] ) );
@@ -326,7 +335,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             $nonce = esc_attr( $_REQUEST['_wpnonce'] );
 
             if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
-                die( 'Go get a life script kiddies' );
+                die( 'Nonce verification failed' );
             }
             else {
                 $this->importer->import( absint( $_GET['post'] ) , 'draft');
@@ -356,7 +365,7 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             $nonce = esc_attr( $_REQUEST['_wpnonce'] );
 
             if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
-                die( 'Go get a life script kiddies' );
+                die( 'Nonce verification failed' );
             }
             else {
                 $this->importer->import( absint( $_GET['post'] ) , 'publish');
@@ -374,6 +383,41 @@ class Akolade_Aggregator_Post extends Akolade_Aggregator_WP_List_Table {
             // loop over the array of record IDs and delete them
             foreach ( $ak_post_ids as $id ) {
                 $this->importer->import( absint( $id ) , 'publish');
+            }
+        }
+    }
+
+    private function process_cancel_action()
+    {
+        //Detect when a bulk action is being triggered...
+        if ( 'cancel' === $this->current_action() ) {
+
+            // In our file that handles the request, verify the nonce.
+            $nonce = esc_attr( $_REQUEST['_wpnonce'] );
+
+            if ( ! wp_verify_nonce( $nonce, 'ak_post_action_nonce' ) ) {
+                die( 'Nonce verification failed' );
+            }
+            else {
+                $this->db->update_ak_post_using_id( [
+                    'status' => $this->db->get_status_value('cancelled')
+                ], absint( absint( $_GET['post'] ) ));
+            }
+
+        }
+
+        // If the cancel bulk action is triggered
+        if ( ( isset( $_POST['action'] ) && $_POST['action'] == 'bulk-cancel' )
+            || ( isset( $_POST['action2'] ) && $_POST['action2'] == 'bulk-cancel' )
+        ) {
+
+            $ak_post_ids = esc_sql( $_POST['bulk-action'] );
+
+            // loop over the array of record IDs and delete them
+            foreach ( $ak_post_ids as $id ) {
+                $this->db->update_ak_post_using_id( [
+                    'status' => $this->db->get_status_value('cancelled')
+                ], absint( $id ));
             }
         }
     }

@@ -32,6 +32,14 @@ class Akolade_Aggregator_Activator {
 	public static function activate() {
         self::create_posts_table();
         self::create_images_table();
+
+        /**
+         * The class responsible for managing schedules
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-scheduler.php';
+
+        $scheduler = new Akolade_Aggregator_Scheduler();
+        $scheduler->init();
 	}
 
     public static function create_posts_table()
