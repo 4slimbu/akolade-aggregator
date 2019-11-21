@@ -61,6 +61,14 @@ class Akolade_Aggregator_Admin_Settings
             'main-section'
         );
 
+        add_settings_field(
+            'is_scheduled',
+            'Schedule',
+            array( $this, 'is_scheduled_callback' ),
+            'akolade-aggregator-settings',
+            'main-section'
+        );
+
     }
 
     /**
@@ -87,6 +95,9 @@ class Akolade_Aggregator_Admin_Settings
 
         if( isset( $input['auto_publish'] ) )
             $new_input['auto_publish'] = sanitize_text_field( $input['auto_publish'] );
+
+        if( isset( $input['is_scheduled'] ) )
+            $new_input['is_scheduled'] = sanitize_text_field( $input['is_scheduled'] );
 
         return $new_input;
     }
@@ -154,6 +165,16 @@ class Akolade_Aggregator_Admin_Settings
             <option value="1" <?php echo $this->getOption('auto_publish') === "1" ? 'selected': '' ?>>Import And Save as Draft</option>
             <option value="2" <?php echo $this->getOption('auto_publish') === "2" ? 'selected': '' ?>>Import And Publish</option>
         </select>
+        <?php
+    }
+
+    /**
+     * Is scheduled checkbox
+     */
+    public function is_scheduled_callback()
+    {
+        ?>
+        <input type="checkbox" name="akolade-aggregator[is_scheduled]" value="1" <?php echo $this->getOption('is_scheduled') === "1" ? 'checked' : '' ?>> Schedule
         <?php
     }
 

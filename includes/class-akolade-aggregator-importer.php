@@ -140,6 +140,22 @@ class Akolade_Aggregator_Importer {
             $last_id = $this->db->get_last_insert_id();
         }
 
+        // If not scheduled
+        if (! $this->db->get_option('is_scheduled')) {
+            // if auto_publish is set to "Import and save as draft", create draft of imported post
+            if ( $this->db->get_option('auto_publish') === '1' ) {
+                $this->import($last_id, 'draft');
+            }
+
+            // if auto_publish is set to "Import and Publish" Publish imported post
+            if (
+                $this->db->get_option('auto_publish') === '2' ||
+                in_array($post_type, $this->always_publish)
+            ) {
+                $this->import($last_id, 'publish');
+            }
+        };
+
         return $result;
     }
 
@@ -510,7 +526,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -536,7 +552,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -556,7 +572,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '91d4136f.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
@@ -602,9 +618,6 @@ class Akolade_Aggregator_Importer {
                         try {
                             // if slider exists, delete
                             $slider->initByAlias($alias);
-                            echo "<pre>";
-                            var_dump($slider);
-                            die();
                             if ($slider) {
                                 $slider->deleteSlider();
                             }
@@ -615,7 +628,7 @@ class Akolade_Aggregator_Importer {
                             // do nothing
                         }
 
-                        $slider->importSlider(str_replace('akolade.test', '91d4136f.ngrok.io', $download_url));
+                        $slider->importSlider(str_replace('akolade.test', '2b5fce3b.ngrok.io', $download_url));
 
                         return '[rev_slider alias="' . $alias . '"]';
                     }
@@ -690,6 +703,11 @@ class Akolade_Aggregator_Importer {
      */
     public function import_posts_in_batch($count = 1)
     {
+        // If not scheduled, abort
+        if (! $this->db->get_option('is_scheduled')) {
+            return;
+        }
+
         $status = '';
         $pending_posts = $this->db->get_ak_pending_posts($count);
 
