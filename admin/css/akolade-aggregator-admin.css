@@ -25,3 +25,7 @@
     width: 100%;
     height: 32px;
 }
+
+.parent-exporter, .parent-importer {
+    display: none;
+}

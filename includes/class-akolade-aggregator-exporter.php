@@ -43,6 +43,10 @@ class Akolade_Aggregator_Exporter
 
     public function handle($post_id, $post, $update)
     {
+        if ($this->get_option('type') !== 'exporter') {
+            return;
+        }
+
         // Check if post status is publish
         if ($post->post_status !== 'publish') {
             return;
@@ -63,8 +67,12 @@ class Akolade_Aggregator_Exporter
         }
 
         // Prevent exporting loop when post saved from this plugin
-        if (get_current_screen() && get_current_screen()->parent_base === 'akolade_aggregator') {
+        if (! function_exists('get_current_screen')) {
             return;
+        } else {
+            if (get_current_screen() && get_current_screen()->parent_base === 'akolade_aggregator') {
+                return;
+            }
         }
 
         $this->export($post);

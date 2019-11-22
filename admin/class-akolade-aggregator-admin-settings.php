@@ -38,11 +38,21 @@ class Akolade_Aggregator_Admin_Settings
         );
 
         add_settings_field(
+            'type',
+            'Type',
+            array( $this, 'type_callback' ),
+            'akolade-aggregator-settings',
+            'main-section',
+            array('class' => 'akag-type')
+        );
+
+        add_settings_field(
             'access_token',
             'Access Token',
             array( $this, 'access_token_callback' ),
             'akolade-aggregator-settings',
-            'main-section'
+            'main-section',
+            array('class' => 'parent-importer')
         );
 
         add_settings_field(
@@ -50,7 +60,8 @@ class Akolade_Aggregator_Admin_Settings
             'Network Sites',
             array( $this, 'network_sites_callback' ),
             'akolade-aggregator-settings',
-            'main-section'
+            'main-section',
+            array('class' => 'parent-exporter')
         );
 
         add_settings_field(
@@ -58,7 +69,8 @@ class Akolade_Aggregator_Admin_Settings
             'Auto Publish',
             array( $this, 'auto_publish_callback' ),
             'akolade-aggregator-settings',
-            'main-section'
+            'main-section',
+            array('class' => 'parent-importer')
         );
 
         add_settings_field(
@@ -66,7 +78,8 @@ class Akolade_Aggregator_Admin_Settings
             'Schedule',
             array( $this, 'is_scheduled_callback' ),
             'akolade-aggregator-settings',
-            'main-section'
+            'main-section',
+            array('class' => 'parent-importer')
         );
 
     }
@@ -81,6 +94,9 @@ class Akolade_Aggregator_Admin_Settings
     public function sanitize( $input )
     {
         $new_input = array();
+
+        if( isset( $input['type'] ) )
+            $new_input['type'] = sanitize_text_field( $input['type'] );
 
         if( isset( $input['access_token'] ) )
             $new_input['access_token'] = sanitize_text_field( $input['access_token'] );
@@ -100,6 +116,19 @@ class Akolade_Aggregator_Admin_Settings
             $new_input['is_scheduled'] = sanitize_text_field( $input['is_scheduled'] );
 
         return $new_input;
+    }
+
+    /**
+     * Get the type ( exporter or importer ) that plugin will function
+     */
+    public function type_callback()
+    {
+        ?>
+        <select name="akolade-aggregator[type]" id="type" value="<?php echo $this->getOption('type')?>">
+            <option value="exporter" <?php echo $this->getOption('type') === "exporter" ? 'selected': '' ?>>Exporter</option>
+            <option value="importer" <?php echo $this->getOption('type') === "importer" ? 'selected': '' ?>>Importer</option>
+        </select>
+        <?php
     }
 
     /**

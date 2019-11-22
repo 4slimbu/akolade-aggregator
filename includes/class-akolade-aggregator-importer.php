@@ -113,6 +113,11 @@ class Akolade_Aggregator_Importer {
             die('Invalid Access Token');
         }
 
+        // Don't import if not of type importer
+        if ($this->db->get_option('type') !== 'importer') {
+            return;
+        }
+
         $data = $_POST['data'];
         $post = $data['post'];
         $post_name = $post['post_name'];
@@ -169,6 +174,11 @@ class Akolade_Aggregator_Importer {
      */
     public function import($id, $status = 'draft')
     {
+        // don't import post if not of importer type
+        if ($this->db->get_option('type') !== 'importer') {
+            return;
+        }
+
         $import_data = $this->db->get_ak_post($id);
 
         if (! $import_data) {
@@ -182,7 +192,7 @@ class Akolade_Aggregator_Importer {
         $post_terms = isset($data->post_terms) ? $data->post_terms : null;
         $post_images = isset($data->post_images) ? $data->post_images : null;
 
-        //First, import author because it need to be assigned to post object
+        // First, import author because it need to be assigned to post object
         $post_author = $this->import_author($post_author->data);
         // Then its time to import the post object
         $post_id = $this->import_post($post, $status, $post_author);
@@ -526,7 +536,7 @@ class Akolade_Aggregator_Importer {
 
         // If not import and cache it in the imported images list
         if (! $saved_image_id) {
-            $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $image_url), $post_id, '', 'id');
+            $saved_image_id = media_sideload_image(str_replace('akolade.test', 'b60f1fc0.ngrok.io', $image_url), $post_id, '', 'id');
             if (is_int($saved_image_id)) {
                 $this->db->ak_remember_imported_image($image_url, $saved_image_id);
             }
@@ -552,7 +562,7 @@ class Akolade_Aggregator_Importer {
                 $img_src = $this->db->ak_get_imported_image($matches[1], 'src');
 
                 if (! $img_src) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'b60f1fc0.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_src = wp_get_attachment_url($saved_image_id);
@@ -572,7 +582,7 @@ class Akolade_Aggregator_Importer {
             function ($matches) {
                 $img_id = $this->db->ak_get_imported_image($matches[1], 'id');
                 if (! $img_id) {
-                    $saved_image_id = media_sideload_image(str_replace('akolade.test', '2b5fce3b.ngrok.io', $matches[1]), '', '', 'id');
+                    $saved_image_id = media_sideload_image(str_replace('akolade.test', 'b60f1fc0.ngrok.io', $matches[1]), '', '', 'id');
                     if (is_int($saved_image_id)) {
                         $this->db->ak_remember_imported_image($matches[1], $saved_image_id);
                         $img_id = $saved_image_id;
@@ -628,7 +638,7 @@ class Akolade_Aggregator_Importer {
                             // do nothing
                         }
 
-                        $slider->importSlider(str_replace('akolade.test', '2b5fce3b.ngrok.io', $download_url));
+                        $slider->importSlider(str_replace('akolade.test', 'b60f1fc0.ngrok.io', $download_url));
 
                         return '[rev_slider alias="' . $alias . '"]';
                     }
@@ -714,7 +724,7 @@ class Akolade_Aggregator_Importer {
         if ($pending_posts) {
             foreach ($pending_posts as $pending_post) {
                 // Skip if importing post status is cancelled
-                if ($pending_post->status === $this->db->get_status_value('cancelled')) {
+                if ($pending_post['status'] === $this->db->get_status_value('cancelled')) {
                     continue;
                 }
 
@@ -722,13 +732,6 @@ class Akolade_Aggregator_Importer {
                 if (in_array($pending_post['post_type'], $this->always_publish)) {
                     $status = 'publish';
                 } else {
-                    // Skip if, saving post is not set
-                    if (
-                        $this->db->get_option('auto_publish') !== '1' ||
-                        $this->db->get_option('auto_publish') !== '2'
-                    ) {
-                        continue;
-                    }
 
                     // if auto_publish is set to "Import and save as draft", create draft of imported post
                     if ( $this->db->get_option('auto_publish') === '1' ) {

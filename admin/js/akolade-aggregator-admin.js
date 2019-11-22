@@ -110,6 +110,26 @@
             url.searchParams.set(key, val);
             return url.href;
         }
+
+        /**
+         * Show/hide options based on type: exporter/importer
+         */
+        displayAkagOptions();
+        function displayAkagOptions() {
+        	var type = $('.akag-type').find("option:selected").attr('value');
+            if (type === 'exporter') {
+                $('.parent-importer').hide();
+                $('.parent-exporter').show();
+            }
+            if (type === 'importer') {
+                $('.parent-exporter').hide();
+                $('.parent-importer').show();
+            }
+        }
+
+        $('.akag-type').change(function(){
+			displayAkagOptions();
+        });
     });
 
 })( jQuery );

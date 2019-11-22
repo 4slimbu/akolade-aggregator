@@ -79,4 +79,5 @@ function run_akolade_aggregator() {
 	$plugin->run();
 
 }
-run_akolade_aggregator();
+
+add_action('plugins_loaded', 'run_akolade_aggregator');

@@ -32,6 +32,14 @@ class Akolade_Aggregator_Activator {
 	public static function activate() {
         self::create_posts_table();
         self::create_images_table();
+
+        /**
+         * The class responsible for managing schedules
+         */
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-scheduler.php';
+
+        $scheduler = new Akolade_Aggregator_Scheduler();
+//        $scheduler->init();
 	}
 
     public static function create_posts_table()
@@ -52,7 +60,7 @@ class Akolade_Aggregator_Activator {
             $sql .= "  `channel`  varchar(128)   NOT NULL, ";
             $sql .= "  `post_type`  varchar(128)   NOT NULL, ";
             $sql .= "  `data`  mediumtext   NOT NULL, ";
-            $sql .= "  `status`  tinyint(4)   NOT NULL, "; // up-to-date (0), new (1), update (2), cancelled (3)
+            $sql .= "  `status`  tinyint(1)   NOT NULL, "; // up-to-date (0), new (1), update (2), cancelled (3)
             $sql .= "  `created_at`  timestamp   NOT NULL, ";
             $sql .= "  PRIMARY KEY (`id`) ";
             $sql .= "); ";
