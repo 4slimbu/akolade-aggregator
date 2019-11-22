@@ -95,6 +95,7 @@ class Akolade_Aggregator_Importer {
      */
     public function __construct()
     {
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-db.php';
         $this->db = new Akolade_Aggregator_DB();
     }
 

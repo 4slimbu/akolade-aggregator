@@ -14,6 +14,7 @@ class Akolade_Aggregator_Scheduler {
      * Akolade_Aggregator_Scheduler constructor.
      */
     public function __construct() {
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-akolade-aggregator-importer.php';
         $this->importer = new Akolade_Aggregator_Importer();
         $this->init();
     }
