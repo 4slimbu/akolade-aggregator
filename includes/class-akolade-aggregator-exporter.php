@@ -185,17 +185,22 @@ class Akolade_Aggregator_Exporter
     {
         // replace src="image_url" with placeholder
         $content = preg_replace_callback(
-            '/src\s?=\s?"(.*?)"/',
+            '/\<img(.*?)\/>/',
             function ($matches) {
-                // Create unique placeholder for matched image urls
-                $placeholder = '%akagsrcstart%' . $matches[1] . '%akagsrcend%';
+                $attributes = $this->extract_atts($matches[1]);
 
-                return 'src="' . $placeholder . '"';
+                if (isset($attributes['src'])) {
+                    // Create unique placeholder for matched image urls
+                    $attributes['src'] = '%akagsrcstart%' . $attributes['src'] . '%akagsrcend%';
+                }
+
+                return $this->make_tag('img', $attributes, '', true);
             },
             $content
         );
 
         // replace image="2983" images="2323,3232" ids="2323,2342" with placeholder
+        // TODO: make it more robust by including the tag instead of just image attribute in the regex match
         $content = preg_replace_callback(
             '/(ids|image|images)\s?=\s?"([0-9,]*?)"/',
             function ($matches) {
@@ -225,18 +230,7 @@ class Akolade_Aggregator_Exporter
             $content = preg_replace_callback(
                 '/\[rev_slider(.*?)\]/',
                 function ($matches) {
-                    $match_array = preg_split( '/(="|" )/', str_replace('\\', '', $matches[1]));
-
-                    $attributes = [];
-                    for ($i = 0; $i < count($match_array); $i += 2) {
-                        if (isset($match_array[$i]) && isset($match_array[$i + 1])) {
-                            $key = str_replace('"', '', $match_array[$i]);
-                            $key = str_replace(' ', '', $key);
-                            $value = str_replace('"', '', $match_array[$i + 1]);
-                            $value = str_replace(' ', '', $value);
-                            $attributes[$key] = $value;
-                        }
-                    }
+                    $attributes = $this->extract_atts($matches[1]);
 
                     if (isset($attributes['alias'])) {
                         $alias = $attributes['alias'];
@@ -310,4 +304,38 @@ class Akolade_Aggregator_Exporter
         return $post_meta;
     }
 
+    public function extract_atts($match_string)
+    {
+        $match_array = preg_split( '/(="|" )/', str_replace('\\', '', $match_string));
+
+        $attributes = [];
+        for ($i = 0; $i < count($match_array); $i += 2) {
+            if (isset($match_array[$i]) && isset($match_array[$i + 1])) {
+                $key = str_replace('"', '', $match_array[$i]);
+                $key = str_replace(' ', '', $key);
+                $value = str_replace('"', '', $match_array[$i + 1]);
+                $value = str_replace(' ', '', $value);
+                $attributes[$key] = $value;
+            }
+        }
+
+        return $attributes;
+    }
+
+    public function make_tag($tag, $attributes, $content = '', $is_self_closing = false)
+    {
+        $tag = '<' . $tag;
+
+        foreach ($attributes as $key => $value) {
+            $tag .= ' ' . $key . '="' . $value .'" ';
+        }
+
+        if ($is_self_closing) {
+            $tag .= '/>';
+        } else {
+            $tag .= '>' . $content . '</' . $tag . '>';
+        }
+
+        return $tag;
+    }
 }

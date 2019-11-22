@@ -234,4 +234,22 @@ class Akolade_Aggregator_Admin {
     {
         return $this->importer;
     }
+
+    /**
+     * Allow script tags on post content
+     *
+     * @param $allowed_tags
+     * @return mixed
+     */
+    public function allow_script_tag_on_post($allowed_tags)
+    {
+        $allowed_tags['script'] = array(
+            'type' => true,
+            'src' => true,
+            'height' => true,
+            'width' => true,
+        );
+
+        return $allowed_tags;
+    }
 }

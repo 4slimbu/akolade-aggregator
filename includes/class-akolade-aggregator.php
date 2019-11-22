@@ -169,6 +169,8 @@ class Akolade_Aggregator {
         $this->loader->add_action( 'post_updated', $plugin_admin->exporter(), 'handle', 10, 3 );
         $this->loader->add_action( 'wp_ajax_akolade_aggregator_import', $plugin_admin->importer(), 'handle' );
         $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'handle' );
+        $this->loader->add_action( 'wp_ajax_nopriv_akolade_aggregator_import', $plugin_admin->importer(), 'handle' );
+        $this->loader->add_action( 'wp_kses_allowed_html', $plugin_admin, 'allow_script_tag_on_post' );
 
         $this->loader->add_filter( 'set-screen-option', $plugin_admin->posts_list(), 'set_screen' );
     }
